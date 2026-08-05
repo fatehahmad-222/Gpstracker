@@ -1,0 +1,257 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.css';
+@import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — dark mode is the default (`.dark` on <html>).       */
+/* Values are RGB triplets so Tailwind alpha modifiers (`/60`) work.   */
+/* ------------------------------------------------------------------ */
+:root {
+  --bg: 246 248 252;
+  --surface: 255 255 255;
+  --surface-2: 238 242 248;
+  --surface-3: 228 234 243;
+  --line: 217 224 234;
+  --ink: 20 27 38;
+  --ink-dim: 100 113 132;
+  --accent: 16 172 108;
+  --accent-strong: 11 130 84;
+  --warning: 217 135 14;
+  --danger: 220 66 66;
+  --info: 51 122 220;
+}
+
+.dark {
+  --bg: 10 14 20;
+  --surface: 16 22 31;
+  --surface-2: 22 29 41;
+  --surface-3: 30 39 54;
+  --line: 35 43 56;
+  --ink: 216 222 232;
+  --ink-dim: 124 136 152;
+  --accent: 52 226 138;
+  --accent-strong: 24 190 116;
+  --warning: 245 165 36;
+  --danger: 239 90 90;
+  --info: 96 165 250;
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--ink));
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.3);
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--line));
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='datetime-local']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top), 0px);
+  }
+  .h-dvh {
+    height: 100dvh;
+  }
+  .skeleton {
+    background: linear-gradient(
+      100deg,
+      rgb(var(--surface-2)) 40%,
+      rgb(var(--surface-3)) 50%,
+      rgb(var(--surface-2)) 60%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Leaflet — keep the basemap legible in both themes.                  */
+/* ------------------------------------------------------------------ */
+.leaflet-container {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  background: rgb(var(--bg));
+}
+
+.dark .leaflet-container {
+  color: rgb(var(--ink));
+}
+
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.55);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgb(var(--surface-2));
+  color: rgb(var(--ink));
+  border: 1px solid rgb(var(--line));
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 14px;
+  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 0.5);
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+
+.leaflet-control-zoom a {
+  background: rgb(var(--surface-2)) !important;
+  color: rgb(var(--ink)) !important;
+  border-color: rgb(var(--line)) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgb(var(--surface-3)) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgb(var(--surface) / 0.85) !important;
+  color: rgb(var(--ink-dim)) !important;
+}
+
+.leaflet-control-attribution a {
+  color: rgb(var(--ink-dim)) !important;
+}
+
+/* Marker clustering — theme it instead of relying on default sprites. */
+.marker-cluster {
+  background: transparent !important;
+}
+.marker-cluster div {
+  background-color: rgb(var(--accent) / 0.9) !important;
+  color: rgb(var(--bg)) !important;
+  border: 2px solid rgb(var(--bg)) !important;
+  border-radius: 9999px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ */
+/* Fleet employee markers (built as divIcon HTML)                      */
+/* ------------------------------------------------------------------ */
+.fleet-pin {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0a0e14;
+  border: 2px solid rgb(var(--line));
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.45);
+  cursor: pointer;
+}
+
+.fleet-pin .letter {
+  position: relative;
+  z-index: 1;
+}
+
+.fleet-pin .ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 2px solid rgb(var(--accent) / 0.6);
+  animation: pulseRing 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.fleet-pin.online {
+  border-color: rgb(var(--accent));
+  box-shadow: 0 0 0 4px rgb(var(--accent) / 0.25), 0 4px 12px rgb(0 0 0 / 0.45);
+}
+
+.fleet-pin.offline {
+  filter: grayscale(0.9);
+  opacity: 0.75;
+}
+
+.fleet-pin.offline .ring {
+  display: none;
+}
+
+.fleet-pin.has-task::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  background: rgb(var(--warning));
+  border: 2px solid rgb(var(--bg));
+}
+
+.fleet-pin.selected {
+  outline: 3px solid rgb(var(--info) / 0.8);
+  outline-offset: 3px;
+}
+
+/* Small marker used on the employee side */
+.fleet-pin.sm {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+/* Task target marker */
+.fleet-target {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: rgb(var(--danger));
+  border: 3px solid rgb(var(--bg));
+  box-shadow: 0 0 0 3px rgb(var(--danger) / 0.35), 0 4px 12px rgb(0 0 0 / 0.4);
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
