@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 const AuthContext = createContext({
@@ -12,6 +13,7 @@ const AuthContext = createContext({
 });
 
 export function AuthProvider({ children }) {
+  const router = useRouter();
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,7 +64,8 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
-  }, []);
+    router.replace("/login");
+  }, [router]);
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, refreshProfile, signOut }}>
