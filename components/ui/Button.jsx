@@ -5,8 +5,7 @@ import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 
 const styles = {
-  primary:
-    "bg-accent text-bg hover:bg-accent-strong shadow-[0_6px_20px_-6px_rgb(var(--accent)/0.6)]",
+  primary: "bg-accent text-bg hover:bg-accent-strong",
   secondary:
     "bg-surface-2 text-ink border border-line hover:bg-surface-3",
   ghost: "text-ink-dim hover:text-ink hover:bg-surface-2",

@@ -34,7 +34,6 @@ module.exports = {
         pill: "9999px",
       },
       boxShadow: {
-        glow: "0 0 0 1px rgb(var(--accent) / 0.25), 0 0 24px rgb(var(--accent) / 0.18)",
         card: "0 1px 0 0 rgb(var(--line) / 0.6) inset, 0 16px 40px -20px rgb(0 0 0 / 0.55)",
         pop: "0 24px 64px -16px rgb(0 0 0 / 0.65)",
       },

@@ -25,7 +25,7 @@ export default function AdminShell({ children }) {
     <div className="flex min-h-dvh bg-bg">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
         <Link href="/dashboard" className="flex items-center gap-2.5 px-5 py-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-bg shadow-glow">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-bg">
             <Radar size={18} />
           </div>
           <div className="leading-tight">
