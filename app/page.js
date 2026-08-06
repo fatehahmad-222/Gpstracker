@@ -10,6 +10,7 @@ export default async function HomePage() {
   if (!user) redirect("/login");
 
   const profile = await getProfile();
+  if (profile && profile.is_active === false) redirect("/login");
   if (profile?.role === "admin") redirect("/dashboard");
   redirect("/app");
 }

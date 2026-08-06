@@ -11,6 +11,7 @@ export default async function AppLayout({ children }) {
   if (!user) redirect("/login");
 
   const profile = await getProfile();
+  if (profile && profile.is_active === false) redirect("/login");
   if (profile?.role !== "employee") redirect("/dashboard");
 
   return <AppShell>{children}</AppShell>;

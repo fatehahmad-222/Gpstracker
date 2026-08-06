@@ -25,13 +25,17 @@ export function useLiveOverview() {
     Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name, role, phone, avatar_url, created_at")
+        .select("id, full_name, role, phone, avatar_url, created_at, is_active")
         .order("full_name"),
       supabase.from("live_locations").select("*"),
       supabase.from("tasks").select("*").in("status", ["pending", "in_progress"]),
     ]).then(([profilesRes, locsRes, tasksRes]) => {
       if (!mounted) return;
-      setProfiles((profilesRes.data ?? []).filter((p) => p.role === "employee"));
+      setProfiles(
+        (profilesRes.data ?? []).filter(
+          (p) => p.role === "employee" && p.is_active !== false
+        )
+      );
       const map = {};
       (locsRes.data ?? []).forEach((row) => {
         map[row.employee_id] = row;
@@ -58,6 +62,26 @@ export function useLiveOverview() {
 
       channel = supabase
         .channel("overview-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "profiles" },
+          (payload) => {
+            setProfiles((prev) => {
+              const list = prev ?? [];
+              const isVisible = (row) =>
+                row && row.role === "employee" && row.is_active !== false;
+
+              if (payload.eventType === "DELETE") {
+                return list.filter((p) => p.id !== payload.old.id);
+              }
+              const id = payload.new?.id ?? payload.old?.id;
+              const others = list.filter((p) => p.id !== id);
+              const row = payload.new;
+              if (isVisible(row)) return [...others, row];
+              return others;
+            });
+          }
+        )
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "live_locations" },

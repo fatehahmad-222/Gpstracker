@@ -9,7 +9,7 @@ import { Input, Textarea } from "@/components/ui/Input";
 import { Avatar } from "@/components/ui/Avatar";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/components/providers/AuthProvider";
-import NominatimSearch from "./NominatimSearch";
+import PlaceSearch from "./PlaceSearch";
 import { MapLoading } from "@/components/map/MapLoading";
 import { cn } from "@/lib/utils";
 
@@ -179,17 +179,17 @@ export default function NewTaskModal({ open, onClose, employees, defaultEmployee
           {/* Right: target */}
           <div>
             <Field label="Target location">
-              <NominatimSearch
+              <PlaceSearch
                 onPick={pickTarget}
-                placeholder="Search an address or place…"
+                placeholder="Search a shop, pharmacy, address…"
                 className="mb-2"
               />
-              <div className="relative overflow-hidden rounded-field border border-line">
+              <div className="relative z-0 overflow-hidden rounded-field border border-line">
                 <TargetPickerMap
                   target={target}
                   radius={radius}
                   flyTo={flyTo}
-                  onPick={(lat, lng) => pickTarget({ lat, lng, address: null })}
+                  onPick={(pick) => pickTarget(pick)}
                 />
                 {!target && (
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

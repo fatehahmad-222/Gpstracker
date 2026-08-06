@@ -25,11 +25,14 @@ export function AuthProvider({ children }) {
     }
     const { data } = await supabase
       .from("profiles")
-      .select("id, full_name, role, phone, avatar_url, created_at")
+      .select("id, full_name, role, phone, avatar_url, created_at, is_active")
       .eq("id", userId)
       .maybeSingle();
     setProfile(data ?? null);
-  }, []);
+    if (data && data.is_active === false) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   const refreshProfile = useCallback(async () => {
     const {

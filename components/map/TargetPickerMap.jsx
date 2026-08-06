@@ -2,10 +2,11 @@
 
 import { Circle, MapContainer, Marker, useMapEvents } from "react-leaflet";
 import { FlyTo, OsmTiles, geofenceOptions, targetIcon } from "./MapBase";
+import PoiLayer from "./PoiLayer";
 
 function ClickCatcher({ onPick }) {
   useMapEvents({
-    click: (e) => onPick(e.latlng.lat, e.latlng.lng),
+    click: (e) => onPick({ lat: e.latlng.lat, lng: e.latlng.lng, address: null }),
   });
   return null;
 }
@@ -20,6 +21,7 @@ export default function TargetPickerMap({ target, radius, flyTo, onPick }) {
     >
       <OsmTiles />
       <ClickCatcher onPick={onPick} />
+      <PoiLayer onPick={onPick} />
       {flyTo && <FlyTo center={[flyTo.lat, flyTo.lng]} zoom={16} />}
       {target && (
         <>

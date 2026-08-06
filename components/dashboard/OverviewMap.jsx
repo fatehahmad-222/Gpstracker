@@ -8,6 +8,7 @@ import { Radar, RefreshCcw, UserRound } from "lucide-react";
 import L from "leaflet";
 import AnimatedMarker from "@/components/map/AnimatedMarker";
 import { FitBounds, FlyTo, OsmTiles } from "@/components/map/MapBase";
+import PoiLayer from "@/components/map/PoiLayer";
 import { Avatar } from "@/components/ui/Avatar";
 import { buildPinHtml, cn, colorForName, isOnline, timeAgo } from "@/lib/utils";
 import { MARKER_COLORS, OFFLINE_AFTER_MS } from "@/lib/constants";
@@ -65,6 +66,7 @@ export default function OverviewMap({
     <MapContainer center={[31.5497, 74.3436]} zoom={12} scrollWheelZoom className="h-full w-full">
       <OsmTiles />
       <FitBounds bounds={bounds} />
+      <PoiLayer />
 
       {focus && <FlyTo center={[focus.lat, focus.lng]} />}
 
