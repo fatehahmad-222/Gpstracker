@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useMemo, useState } from "react";
+import { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { MonitorSidebar, MonitorTopBar } from "@/components/monitor/shell";
+import { canAccessPath } from "@/lib/monitor/nav";
 import { MonitorSettingsProvider } from "./settings-context";
 
 /**
@@ -14,6 +15,10 @@ import { MonitorSettingsProvider } from "./settings-context";
  * the app-wide `.dark` class, which is how the module gets its own theme
  * without introducing a second CSS system.
  */
+
+/** Where an employee lands when they reach a staff-only monitor route. */
+const EMPLOYEE_HOME = "/monitor/attendance";
+
 export function MonitorClientShell({ children, role, companyCode, timezone, settings, user }) {
   const [navOpen, setNavOpen] = useState(false);
   const pathname = usePathname();
@@ -21,6 +26,26 @@ export function MonitorClientShell({ children, role, companyCode, timezone, sett
 
   const closeNav = useCallback(() => setNavOpen(false), []);
   const toggleNav = useCallback(() => setNavOpen((v) => !v), []);
+
+  /**
+   * Role gate for staff-only pages.
+   *
+   * The sidebar already hides entries an employee may not open, but that only
+   * removes the link. Without this, typing the URL rendered the page chrome -
+   * `guardMonitorPath` was written for exactly this and never called from
+   * anywhere, so the rule only existed as navigation.
+   *
+   * This is not the security boundary and is not treated as one: every monitor
+   * API route independently refuses a non-staff role via requireContext, so no
+   * data can reach an employee regardless of what the client renders. What this
+   * prevents is showing a staff screen that can only ever fail to load, and it
+   * turns the dead guard into an enforced one.
+   */
+  const permitted = canAccessPath(pathname, role);
+
+  useEffect(() => {
+    if (!permitted) router.replace(EMPLOYEE_HOME);
+  }, [permitted, router, pathname]);
 
   const signOut = useCallback(async () => {
     try {
@@ -64,7 +89,11 @@ export function MonitorClientShell({ children, role, companyCode, timezone, sett
             companyCode={companyCode}
             user={user}
           />
-          <main className="min-w-0 flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
+          <main className="min-w-0 flex-1 px-4 py-5 lg:px-6 lg:py-6">
+            {/* Held back while a redirect is in flight, so a staff screen never
+                flashes for a role that may not have it. */}
+            {permitted ? children : null}
+          </main>
         </div>
       </div>
     </MonitorSettingsProvider>

@@ -34,7 +34,19 @@ export async function POST(request) {
   // Service role: `device_events` and `locations` are RLS-locked to admin/viewer,
   // because raw device data is the most sensitive material in the product and an
   // employee must never read their own. The authorisation happens here instead.
-  const supabase = adminClient();
+  //
+  // Constructing the client throws when SUPABASE_SERVICE_ROLE_KEY is absent, and
+  // it throws *here* rather than on first use - before the try/catch below can
+  // see it. Left unguarded that surfaced as an unhandled exception from the one
+  // endpoint on the product that accepts anonymous traffic, so a deployment with
+  // no service-role key answered every caller with a stack trace. Turn it into a
+  // diagnosable 500 instead.
+  let supabase;
+  try {
+    supabase = adminClient();
+  } catch {
+    return serverError("Ingestion is not configured on this server");
+  }
 
   let device;
   try {
