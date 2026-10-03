@@ -43,7 +43,12 @@ export function DataTable({
   initialSort = [],
   getRowId,
   onRowClick,
-  expandedRow,
+  /**
+   * Detail row rendered beneath the matching row: `{ id, content }`.
+   * `id` is matched against the row id to decide which row is open, and
+   * `content` is the node rendered in the full-width cell below it.
+   */
+  expandedRow = null,
   columnVisibility,
   onColumnVisibilityChange,
   toolbar = null,
@@ -270,7 +275,7 @@ function TableRow({
       {isExpanded && expandedRow ? (
         <tr className="border-b border-line bg-surface-2">
           <td colSpan={totalCols} className="p-0">
-            {expandedRow}
+            {expandedRow.content}
           </td>
         </tr>
       ) : null}

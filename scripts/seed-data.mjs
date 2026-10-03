@@ -387,8 +387,46 @@ export const EVENT_SEVERITY = {
   heartbeat_gap: "medium",
   impossible_travel: "critical",
   logged_out: "medium",
-  admin_logout: "medium",
+  admin_logout: "low",
   sim_change: "high",
-  old_app: "medium",
-  battery_low: "medium",
+  old_app: "low",
+  battery_low: "low",
 };
+
+/**
+ * Categories mirroring `SIGNAL_BY_KEY` in lib/monitor/signals.js.
+ *
+ * Duplicated because this file has to stay import-free (node loads it directly,
+ * with no build step or `@/` alias). `tests/unit/alerts.test.js` asserts the two
+ * stay in step, so drift fails the build rather than quietly mis-filing demo
+ * alerts.
+ */
+export const EVENT_CATEGORY = {
+  data_cleared: "Data Loss",
+  logged_in_not_synced: "Data Loss",
+  no_sync_24h: "Data Pending",
+  unsupported: "Accuracy Problems",
+  second_device: "Possible Fraud",
+  location_off: "Tracking Lost",
+  force_stop: "Tracking Lost",
+  auto_time_off: "Time Tampering",
+  time_diff: "Time Tampering",
+  power_off: "Tracking Lost",
+  battery_restrict: "Tracking Lost",
+  dead_zone: "Tracking Lost",
+  developer_mode: "Possible Fraud",
+  fake_gps: "Possible Fraud",
+  out_of_zone: "Accuracy Problems",
+  heartbeat_gap: "Tracking Lost",
+  impossible_travel: "Possible Fraud",
+  logged_out: "Tracking Lost",
+  admin_logout: "Other",
+  sim_change: "Possible Fraud",
+  old_app: "Other",
+  battery_low: "Other",
+  dead_zone_pending: "Tracking Lost",
+  heartbeat_detail: "Tracking Lost",
+};
+
+/** Severities that belong in a manager's queue; low-severity noise is excluded. */
+export const VIOLATION_SEVERITIES = ["critical", "high", "medium"];
