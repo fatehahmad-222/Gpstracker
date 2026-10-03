@@ -22,6 +22,22 @@ module.exports = {
         warning: "rgb(var(--warning) / <alpha-value>)",
         danger: "rgb(var(--danger) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
+
+        // --- GPS Work Force Monitor ---
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
+        brand: "rgb(var(--brand) / <alpha-value>)",
+        "brand-strong": "rgb(var(--brand-strong) / <alpha-value>)",
+        "brand-deep": "rgb(var(--brand-deep) / <alpha-value>)",
+        "brand-tint": "rgb(var(--brand-tint) / <alpha-value>)",
+        "brand-tint-2": "rgb(var(--brand-tint-2) / <alpha-value>)",
+        crit: "rgb(var(--crit) / <alpha-value>)",
+        "crit-tint": "rgb(var(--crit-tint) / <alpha-value>)",
+        high: "rgb(var(--high) / <alpha-value>)",
+        "high-tint": "rgb(var(--high-tint) / <alpha-value>)",
+        med: "rgb(var(--med) / <alpha-value>)",
+        "med-tint": "rgb(var(--med-tint) / <alpha-value>)",
+        navy: "rgb(var(--navy) / <alpha-value>)",
+        "navy-2": "rgb(var(--navy-2) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["'Inter'", "ui-sans-serif", "system-ui", "sans-serif"],
@@ -32,10 +48,17 @@ module.exports = {
         card: "16px",
         field: "10px",
         pill: "9999px",
+        modal: "16px",
+        tile: "10px",
       },
       boxShadow: {
         card: "0 1px 0 0 rgb(var(--line) / 0.6) inset, 0 16px 40px -20px rgb(0 0 0 / 0.55)",
         pop: "0 24px 64px -16px rgb(0 0 0 / 0.65)",
+        mon: "var(--card-shadow)",
+      },
+      fontSize: {
+        // 10-11px uppercase letter-spaced section labels used across the module
+        label: ["10px", { lineHeight: "14px", letterSpacing: "0.08em" }],
       },
       keyframes: {
         pulseRing: {
