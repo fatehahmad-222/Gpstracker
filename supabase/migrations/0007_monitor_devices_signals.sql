@@ -81,9 +81,22 @@ create index if not exists device_events_company_occurred_idx
 create index if not exists device_events_employee_type_idx
   on public.device_events (employee_id, type, occurred_at desc);
 
-create index if not exists device_events_day_idx
-  on public.device_events (company_id, occurred_at)
-  where occurred_at > now() - interval '90 days';
+-- There is deliberately no "last 90 days" partial index here.
+--
+-- The obvious version of one -
+--   ... (company_id, occurred_at) where occurred_at > now() - interval '90 days'
+-- - is not valid PostgreSQL: `now()` is STABLE, not IMMUTABLE, and an index
+-- predicate may only contain immutable expressions. It was rejected on apply.
+--
+-- It would also have been wrong even if it were accepted. A partial index
+-- predicate is evaluated once, when the index is built, so "the last 90 days"
+-- would freeze at the date the migration ran and silently stop matching anything
+-- afterwards. Anything time-relative cannot go in a predicate.
+--
+-- device_events_company_occurred_idx above already indexes (company_id,
+-- occurred_at desc), which serves the same access pattern; a retention job
+-- (0010) prunes old rows, and it is the row count, not the predicate, that keeps
+-- the index small.
 
 create table if not exists public.violations (
   id uuid primary key default gen_random_uuid(),
