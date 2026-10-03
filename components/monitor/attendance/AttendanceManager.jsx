@@ -47,6 +47,17 @@ export function AttendanceManager() {
   const [notice, setNotice] = useState(null);
   const [closing, setClosing] = useState(null);
 
+  // The search box is debounced so typing a name is one request, not one per
+  // keystroke. `search` stays local to the input; `debounced` drives the fetch.
+  // Declared before `load`, which reads it: a `useCallback` dependency array is
+  // evaluated during render, so reading it from below its declaration throws.
+  const [debounced, setDebounced] = useState(search);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebounced(search), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -76,15 +87,6 @@ export function AttendanceManager() {
         // The department filter is optional; a failed lookup just omits it.
       });
   }, []);
-
-  // The search box is debounced so typing a name is one request, not one per
-  // keystroke. `search` stays local to the input; `debounced` drives the fetch.
-  const [debounced, setDebounced] = useState(search);
-
-  useEffect(() => {
-    const handle = setTimeout(() => setDebounced(search), 300);
-    return () => clearTimeout(handle);
-  }, [search]);
 
   async function closeSession(row) {
     setClosing(row.open_session_id);
