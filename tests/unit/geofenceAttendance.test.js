@@ -66,6 +66,19 @@ describe("reconcile_geofence_session shape", () => {
     );
   });
 
+  it("is revoked from authenticated, not just public", () => {
+    // Supabase's platform default grants EXECUTE on new functions in `public` to
+    // anon AND authenticated, independently of this repo's migrations. Revoking
+    // from `public` alone left this SECURITY DEFINER function callable by any
+    // signed-in account, which would let an employee invent their own punch.
+    // Verified on the live project: the grant list read
+    //   postgres=X, authenticated=X, service_role=X
+    // until `revoke ... from authenticated` was added.
+    expect(sql).toMatch(
+      /revoke execute on function public\.reconcile_geofence_session\([^)]+\) from authenticated/i
+    );
+  });
+
   it("serialises concurrent batches per employee", () => {
     // Two pings landing in two transactions could otherwise both observe "no open
     // session" and both insert, producing a split shift.
