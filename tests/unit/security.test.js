@@ -320,6 +320,76 @@ describe("privileges RLS cannot mediate", () => {
   });
 });
 
+/**
+ * The quota kind check is a closed set of strings in SQL, and the callers are
+ * string literals in JavaScript, and nothing in between checks that they agree.
+ *
+ * They did not agree. lib/server/ingest.js meters every tracker batch with
+ * `p_kind: "device_ingest"`, and the constraint did not list it, so consume_
+ * api_quota raised 23514 and the ingestion route rethrew - on every batch, in
+ * the primary write path of the product. The migrations applied cleanly and
+ * every other test passed, because the two strings simply never met.
+ *
+ * So this asserts the *intersection*: every kind the code sends must be a kind
+ * the schema accepts. Adding a kind to the app without adding it to the
+ * constraint fails here instead of in production.
+ */
+describe("app strings the schema has to accept", () => {
+  function walk(dir, out = []) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules" && entry.name !== ".next" && !entry.name.startsWith(".")) {
+          walk(full, out);
+        }
+      } else if (/\.(js|jsx|mjs)$/.test(entry.name)) {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  const sourceFiles = [...walk(join(process.cwd(), "lib")), ...walk(join(process.cwd(), "app"))];
+
+  /** The last definition wins, the same way the database resolves it. */
+  function effectiveKinds(table) {
+    let kinds = null;
+    for (const { stmt } of ordered) {
+      const flat = stmt.replace(/\s+/g, " ");
+      const inline = flat.match(new RegExp(`${table}[^)]*?check\\s*\\(kind in \\(([^)]*)\\)`, "i"));
+      const added = flat.match(new RegExp(`add constraint \\w+ check\\s*\\(kind in \\(([^)]*)\\)`, "i"));
+      const found = inline || added;
+      if (found) {
+        kinds = new Set(found[1].split(",").map((k) => k.trim().replace(/^'|'$/g, "")));
+      }
+    }
+    return kinds;
+  }
+
+  const allowedKinds = effectiveKinds("api_usage_counters");
+
+  const usedKinds = new Set();
+  for (const file of sourceFiles) {
+    const text = readFileSync(file, "utf8");
+    for (const m of text.matchAll(/p_kind:\s*["'`]([\w-]+)["'`]/g)) usedKinds.add(m[1]);
+  }
+
+  it("finds the quota kinds the app actually sends", () => {
+    // Guards the test below against silently matching nothing.
+    expect(usedKinds.size).toBeGreaterThan(0);
+  });
+
+  it("only sends quota kinds the counter table accepts", () => {
+    expect(allowedKinds).not.toBeNull();
+    expect([...usedKinds].filter((k) => !allowedKinds.has(k))).toEqual([]);
+  });
+
+  it("meters device ingestion, which is the reason the set was widened", () => {
+    expect(usedKinds.has("device_ingest")).toBe(true);
+    expect(allowedKinds.has("device_ingest")).toBe(true);
+  });
+});
+
 describe("security definer functions", () => {
   const definerFns = ordered.flatMap(({ file, stmt }) => {
     const flat = stmt.replace(/\s+/g, " ");
