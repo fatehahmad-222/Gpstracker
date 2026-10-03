@@ -2,7 +2,8 @@
   "extends": "next/core-web-vitals",
   "rules": {
     "react/no-unescaped-entities": "off",
-    "@next/next/no-img-element": "off"
+    "@next/next/no-img-element": "off",
+    "no-use-before-define": ["error", { "variables": true, "functions": false, "classes": false }]
   },
   "ignorePatterns": ["node_modules/", ".next/", "playwright-report/", "test-results/", "coverage/"]
 }

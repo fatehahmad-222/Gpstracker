@@ -122,6 +122,26 @@ function NavTile({ item, active, expanded, onToggle, pathname }) {
 }
 
 /** Inline glyph lookup — a switch keeps nav.js free of React imports. */
+const GLYPHS = {
+  LayoutDashboard: ["M3 3h7v9H3z", "M14 3h7v5h-7z", "M14 12h7v9h-7z", "M3 16h7v5H3z"],
+  Settings2: ["M20 7h-9", "M14 17H5", "M17 4v6", "M7 14v6"],
+  Radar: ["M12 2a10 10 0 1 0 10 10", "M12 7a5 5 0 1 0 5 5", "M12 12h.01"],
+  Users: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 7a3 3 0 1 0 6 0 3 3 0 0 0-6 0", "M22 21v-2a4 4 0 0 0-3-3.87"],
+  UserRoundPlus: ["M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M8.5 7a3 3 0 1 0 6 0 3 3 0 0 0-6 0", "M19 8v6", "M22 11h-6"],
+  MapPinned: ["M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z", "M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
+  MapPinCheck: ["M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z", "M9 10l2 2 4-4"],
+  Route: ["M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", "M18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", "M8 17h5a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h5"],
+  CalendarDays: ["M8 2v4", "M16 2v4", "M3 10h18", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"],
+  CalendarRange: ["M8 2v4", "M16 2v4", "M3 10h18", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 15h3"],
+  ShieldAlert: ["M12 2 4 5v7c0 5 3.4 9 8 10 4.6-1 8-5 8-10V5l-8-3z", "M12 8v5", "M12 16h.01"],
+  HandCoins: ["M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17", "M14 12.5a2.5 2.5 0 1 0 0-5", "M3 21c1.2 0 2.4-.3 3.4-.9", "M18 21c-1 0-2-.3-2.9-.8"],
+  ListChecks: ["M3 5h2l2 2h4", "M3 12h2l2 2h4", "M3 19h2l2 2h4", "M14 5h7", "M14 12h7", "M14 19h7"],
+  Wallet: ["M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z", "M16 12h2"],
+  FileBarChart: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z", "M14 2v6h6", "M8 18v-3", "M12 18v-6", "M16 18v-4"],
+  Timer: ["M10 2h4", "M12 14v-4", "M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"],
+  Handshake: ["M11 17 8 20l-4-4 4-4", "M13 17l3 3 4-4-4-4", "M8 12l3-3 2 2 3-3", "M13 8l3 3", "M3 8l3-3 3 3"],
+};
+
 function NavGlyph({ name }) {
   const path = GLYPHS[name];
   if (!path) return null;
@@ -143,26 +163,6 @@ function NavGlyph({ name }) {
     </svg>
   );
 }
-
-const GLYPHS = {
-  LayoutDashboard: ["M3 3h7v9H3z", "M14 3h7v5h-7z", "M14 12h7v9h-7z", "M3 16h7v5H3z"],
-  Settings2: ["M20 7h-9", "M14 17H5", "M17 4v6", "M7 14v6"],
-  Radar: ["M12 2a10 10 0 1 0 10 10", "M12 7a5 5 0 1 0 5 5", "M12 12h.01"],
-  Users: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 7a3 3 0 1 0 6 0 3 3 0 0 0-6 0", "M22 21v-2a4 4 0 0 0-3-3.87"],
-  UserRoundPlus: ["M15 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M8.5 7a3 3 0 1 0 6 0 3 3 0 0 0-6 0", "M19 8v6", "M22 11h-6"],
-  MapPinned: ["M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z", "M12 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"],
-  MapPinCheck: ["M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z", "M9 10l2 2 4-4"],
-  Route: ["M6 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", "M18 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z", "M8 17h5a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h5"],
-  CalendarDays: ["M8 2v4", "M16 2v4", "M3 10h18", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"],
-  CalendarRange: ["M8 2v4", "M16 2v4", "M3 10h18", "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z", "M8 15h3"],
-  ShieldAlert: ["M12 2 4 5v7c0 5 3.4 9 8 10 4.6-1 8-5 8-10V5l-8-3z", "M12 8v5", "M12 16h.01"],
-  HandCoins: ["M11 15h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 17", "M14 12.5a2.5 2.5 0 1 0 0-5", "M3 21c1.2 0 2.4-.3 3.4-.9", "M18 21c-1 0-2-.3-2.9-.8"],
-  ListChecks: ["M3 5h2l2 2h4", "M3 12h2l2 2h4", "M3 19h2l2 2h4", "M14 5h7", "M14 12h7", "M14 19h7"],
-  Wallet: ["M3 7a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z", "M16 12h2"],
-  FileBarChart: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z", "M14 2v6h6", "M8 18v-3", "M12 18v-6", "M16 18v-4"],
-  Timer: ["M10 2h4", "M12 14v-4", "M12 22a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"],
-  Handshake: ["M11 17 8 20l-4-4 4-4", "M13 17l3 3 4-4-4-4", "M8 12l3-3 2 2 3-3", "M13 8l3 3", "M3 8l3-3 3 3"],
-};
 
 export function MonitorSidebar({ open, onClose, role = "admin", pathname = "" }) {
   const [expanded, setExpanded] = useState(() => {
