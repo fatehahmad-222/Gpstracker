@@ -1,8 +1,7 @@
-﻿import ComingSoonPage from "../../ComingSoonPage";
+﻿import { PolicyManager } from "@/components/monitor/config/PolicyManager";
 
 export const metadata = { title: "Policies" };
 
-export default function Page() {
-  return <ComingSoonPage title="Policies" description="Attendance, overtime, pay and permissions rules." />;
+export default function PoliciesPage() {
+  return <PolicyManager />;
 }
-
