@@ -31,6 +31,8 @@ import {
   GEOFENCES,
   assignmentsFor,
   EVENT_SEVERITY,
+  EVENT_CATEGORY,
+  VIOLATION_SEVERITIES,
 } from "./seed-data.mjs";
 
 // ---------------------------------------------------------------------------
@@ -565,6 +567,44 @@ async function main() {
     if (error) fail("device_events", error);
   }
   log(`device_events: ${events.length} event(s) upserted`);
+
+  // --- violations (the Alerts & Violation queue) -------------------------
+  // Mirrors `violationsFromEvents` in lib/monitor/alerts.js: medium-or-worse
+  // only, and one unresolved violation per employee+signal keeping the earliest
+  // occurrence. The severity/category maps come from seed-data.mjs because this
+  // script runs under plain node with no build step or `@/` alias;
+  // tests/unit/alerts.test.js asserts those copies still agree with the signal
+  // catalogue, so they cannot drift silently.
+  const firstSignalPerEmployee = new Map();
+  for (const ev of events) {
+    if (!VIOLATION_SEVERITIES.includes(ev.severity)) continue;
+    const key = `${ev.employee_id}::${ev.type}`;
+    const seen = firstSignalPerEmployee.get(key);
+    if (!seen || new Date(ev.occurred_at) < new Date(seen.occurred_at)) {
+      firstSignalPerEmployee.set(key, ev);
+    }
+  }
+
+  const violationRows = [...firstSignalPerEmployee.values()].map((ev, i) => ({
+    company_id: COMPANY_ID,
+    employee_id: ev.employee_id,
+    type: ev.type,
+    category: EVENT_CATEGORY[ev.type] || "Other",
+    severity: ev.severity,
+    occurred_at: ev.occurred_at,
+    // Spread across the lifecycle so the queue, the status filter and the
+    // timeline all have something to show instead of one uniform block of
+    // "open" - which would hide whether the filters work at all.
+    status: i % 7 === 0 ? "resolved" : i % 3 === 0 ? "acknowledged" : "open",
+    meta: ev.meta || {},
+  }));
+
+  await db.from("violations").delete().eq("company_id", COMPANY_ID);
+  for (const c of chunk(violationRows, 500)) {
+    const { error } = await db.from("violations").insert(c);
+    if (error) fail("violations", error);
+  }
+  log(`violations: ${violationRows.length} row(s) inserted`);
 
   // --- leaves (dashboard counters) --------------------------------------
   const leaves = activeEmployees.slice(0, 12).map((employee, i) => ({

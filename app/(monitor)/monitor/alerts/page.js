@@ -1,7 +1,7 @@
-﻿import ComingSoonPage from "../ComingSoonPage";
+﻿import { AlertManager } from "@/components/monitor/alerts/AlertManager";
 
-export const metadata = { title: "Alerts" };
+export const metadata = { title: "Alerts & Violation" };
 
 export default function Page() {
-  return <ComingSoonPage title="Alerts" description="Device, sync and security alerts as a flat list." />;
+  return <AlertManager />;
 }
