@@ -125,6 +125,8 @@ test.describe("staff-only API surface", () => {
     "/api/monitor/employees",
     "/api/monitor/dashboard",
     "/api/monitor/alerts",
+    "/api/monitor/leaves",
+    "/api/monitor/tasks",
   ];
 
   for (const path of STAFF_ROUTES) {
