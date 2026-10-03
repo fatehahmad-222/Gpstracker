@@ -439,29 +439,33 @@ grant update on table public.leaves to authenticated, service_role;
 --    project, so this migration is safe on a project without the extension.
 --    To enable:  create extension if not exists pg_cron;
 -- ---------------------------------------------------------------------------
-do $$
+-- The outer block is tagged $cron$, not $$, because each command below is itself
+-- a dollar-quoted string. With a plain `$$` tag the first inner `$$` closed the
+-- `do` block early and the whole migration failed with a syntax error near
+-- "select". Any tag works as long as it differs from the inner ones.
+do $cron$
 begin
   if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
     begin
       perform cron.schedule('monitor-recompute-attendance', '*/5 * * * *',
-        $$select public.recompute_attendance_daily(id, (now() at time zone timezone)::date) from public.companies$$
+        $cmd$select public.recompute_attendance_daily(id, (now() at time zone timezone)::date) from public.companies$cmd$
       );
       perform cron.schedule('monitor-auto-close', '*/5 * * * *',
-        $$select public.auto_close_sessions(id) from public.companies$$
+        $cmd$select public.auto_close_sessions(id) from public.companies$cmd$
       );
       perform cron.schedule('monitor-idle-detect', '*/15 * * * *',
-        $$select public.detect_idle(id) from public.companies$$
+        $cmd$select public.detect_idle(id) from public.companies$cmd$
       );
       perform cron.schedule('monitor-presence-checks', '*/10 * * * *',
-        $$select public.schedule_presence_checks(id) from public.companies$$
+        $cmd$select public.schedule_presence_checks(id) from public.companies$cmd$
       );
       perform cron.schedule('monitor-prune-location-history', '17 3 * * *',
-        $$select public.prune_location_history(id, coalesce((settings->>'retention_days')::integer, 90)) from public.companies$$
+        $cmd$select public.prune_location_history(id, coalesce((settings->>'retention_days')::integer, 90)) from public.companies$cmd$
       );
     exception when others then
       raise notice 'pg_cron present but schedule failed: %', sqlerrm;
     end;
   else
-    raise notice 'pg_cron not installed — background jobs must be triggered externally';
+    raise notice 'pg_cron not installed - background jobs must be triggered externally';
   end if;
-end $$;
+end $cron$;

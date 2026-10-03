@@ -53,6 +53,9 @@ function effectiveState() {
   const indexes = new Map(); // name -> { table, stmt }
   const anonSelect = new Set();
   const anonOther = new Map();
+  const anonBlanket = new Set(); // object types revoked wholesale from anon
+  const anonDefaults = new Set(); // "<role>:<objtype>" taken off anon by default privs
+  const authNoRls = new Set(); // authenticated privileges that RLS does not mediate
 
   for (const { file, stmt } of ordered) {
     const flat = stmt.replace(/\s+/g, " ");
@@ -132,9 +135,43 @@ function effectiveState() {
 
     const grantFn = flat.match(/grant execute on function (?:public\.)?(\w+)\s*\(/i);
     if (grantFn && /\banon\b/.test(flat)) anonOther.set(`fn:${grantFn[1]}`, "execute");
+
+    // 0016: `revoke all on all tables/sequences/functions in schema public from
+    // anon`. These match no table by name, so they need handling before the
+    // per-table patterns above - and they are the statement that makes the
+    // per-table ones irrelevant for anon.
+    const blanket = flat.match(
+      /revoke\s+all\s+on\s+all\s+(tables|sequences|functions)\s+in\s+schema\s+public\s+from\s+anon/i
+    );
+    if (blanket) {
+      anonBlanket.add(blanket[1].toLowerCase());
+      continue;
+    }
+
+    // The grants above never existed in these files - Supabase's default
+    // privileges put them there. Recorded so the "and it stays gone" half of
+    // 0016 is asserted, since revoking today's tables is undone by the next
+    // `create table`.
+    const dflt = flat.match(
+      /alter default privileges for role (\w+) in schema public revoke ([\w\s]+?) on (tables|sequences|functions) from anon/i
+    );
+    if (dflt) {
+      anonDefaults.add(`${dflt[1].toLowerCase()}:${dflt[3].toLowerCase()}`);
+      continue;
+    }
+
+    // TRUNCATE, REFERENCES and TRIGGER are not filtered by RLS, so for those the
+    // grant *is* the boundary.
+    const bypass = flat.match(
+      /revoke\s+([\w\s,]+?)\s+on\s+all\s+tables\s+in\s+schema\s+public\s+from\s+authenticated/i
+    );
+    if (bypass) {
+      for (const p of bypass[1].split(",")) authNoRls.add(p.trim().toLowerCase());
+      continue;
+    }
   }
 
-  return { rls, policies, indexes, anonSelect, anonOther };
+  return { rls, policies, indexes, anonSelect, anonOther, anonBlanket, anonDefaults, authNoRls };
 }
 
 const state = effectiveState();
@@ -212,6 +249,74 @@ describe("row level security, effective state", () => {
     // is_admin() was reachable by anonymous callers. Answering false is harmless,
     // but a blanket anon grant on a function is how the next one becomes a hole.
     expect([...state.anonOther.keys()].filter((k) => k.startsWith("fn:"))).toEqual([]);
+  });
+});
+
+/**
+ * The one hole in this file that no amount of reading the migrations could have
+ * found, and the reason the replay above needed extending.
+ *
+ * 0014 audited every policy and stated that the tables carried "no grants to
+ * anon". That was wrong, and not because a migration said so - because Supabase
+ * configures `alter default privileges ... grant all on tables to anon`, so
+ * every table these migrations created inherited INSERT, SELECT, UPDATE, DELETE,
+ * TRUNCATE, REFERENCES and TRIGGER from anon before any line of this repository
+ * ran. Measured on the live project: anon held all four DML privileges on all 23
+ * tables, and the only thing standing between that and a public copy of every
+ * worker's GPS history was the company-scoped RLS that 0004 and 0014 had just
+ * finished writing.
+ *
+ * So the assertion is deliberately not "no migration grants to anon" - that
+ * version of the test passed while the hole was wide open, which is what makes
+ * it worth writing the stronger one.
+ */
+describe("anon reachability", () => {
+  it("leaves no table privilege to anon, inherited or explicit", () => {
+    const anonTables = [...state.anonSelect, ...[...state.anonOther.keys()].filter((k) => !k.startsWith("fn:"))];
+    expect(anonTables).toEqual([]);
+  });
+
+  it("revokes tables, sequences and functions from anon wholesale", () => {
+    // Per-table revokes cannot cover a table that does not exist yet; this can.
+    expect([...state.anonBlanket].sort()).toEqual(["functions", "sequences", "tables"]);
+  });
+
+  it("takes anon off the default privileges, so the grants do not come back", () => {
+    // The reason the grants were there in the first place. Revoking them on
+    // today's tables without this leaves the next `create table` exposed.
+    for (const objtype of ["tables", "sequences", "functions"]) {
+      expect(state.anonDefaults.has(`postgres:${objtype}`)).toBe(true);
+    }
+  });
+
+  it("keeps anon out of the app's data path deliberately, not by accident", () => {
+    // The anon key is what the browser client is built with, but every real
+    // request runs as `authenticated` from the session cookie, and ingestion
+    // runs as service_role. So anon needs nothing on these tables.
+    //
+    // The risk in writing 0016 is therefore not "did I revoke enough" but "did I
+    // revoke too much": a blanket revoke that also caught `authenticated` would
+    // break every signed-in screen instead of protecting anything, and would look
+    // like a successful hardening in the diff.
+    const blanketRevokes = ordered
+      .map(({ stmt }) => stmt.replace(/\s+/g, " "))
+      .filter((s) => /revoke\s+all\s+on\s+all\s+(tables|sequences|functions)\s+in\s+schema\s+public/i.test(s));
+
+    expect(blanketRevokes.length).toBeGreaterThan(0);
+    for (const stmt of blanketRevokes) {
+      expect(stmt).toMatch(/\bfrom anon\b/i);
+      expect(stmt).not.toMatch(/service_role/);
+      expect(stmt).not.toMatch(/authenticated/);
+    }
+  });
+});
+
+describe("privileges RLS cannot mediate", () => {
+  it("does not let an authenticated session truncate a table", () => {
+    // TRUNCATE is the reason this test exists. RLS is not consulted for it, so
+    // on a table where `authenticated` holds TRUNCATE the grant is the entire
+    // boundary - and PostgREST cannot issue TRUNCATE, so no app path needs it.
+    expect([...state.authNoRls].sort()).toEqual(["references", "trigger", "truncate"]);
   });
 });
 

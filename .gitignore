@@ -5,3 +5,10 @@ dev.log
 test-results
 playwright-report
 coverage
+
+# Supabase CLI artefacts. `supabase link` writes the project ref and database
+# password into .temp/, so this is a credentials file and must never be committed.
+.supabase
+.temp
+supabase/.branches
+supabase/.temp

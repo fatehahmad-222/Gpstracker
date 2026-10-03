@@ -68,23 +68,39 @@ security definer
 set search_path = public
 as $$
 declare
-  v_tz text;
   v_closed integer;
 begin
-  select coalesce(timezone, 'Asia/Karachi') into v_tz from public.companies where id = p_company_id;
+  -- The set of open sessions has to be captured before the UPDATE, because the
+  -- UPDATE is what closes them: re-querying afterwards would find nothing.
+  --
+  -- It also cannot be a CTE. A `with ... as (...)` clause belongs to the single
+  -- statement that follows it, so the original `insert ... from open_sessions`
+  -- referenced a relation that does not exist, and the function failed to
+  -- compile at all. A temp table is the only way to share the row set across two
+  -- statements.
+  create temporary table if not exists open_sessions_tmp (
+    id uuid,
+    employee_id uuid,
+    company_id uuid,
+    clock_in_at timestamptz,
+    shift_start smallint,
+    shift_end smallint
+  ) on commit drop;
 
-  with open_sessions as (
-    select s.id, s.employee_id, s.company_id, s.clock_in_at, e.shift_start, e.shift_end
-    from public.attendance_sessions s
-    join public.employees e on e.id = s.employee_id
-    where s.company_id = p_company_id
-      and s.clock_out_at is null
-      and e.status = 'active'
-  )
+  truncate open_sessions_tmp;
+
+  insert into open_sessions_tmp (id, employee_id, company_id, clock_in_at, shift_start, shift_end)
+  select s.id, s.employee_id, s.company_id, s.clock_in_at, e.shift_start, e.shift_end
+  from public.attendance_sessions s
+  join public.employees e on e.id = s.employee_id
+  where s.company_id = p_company_id
+    and s.clock_out_at is null
+    and e.status = 'active';
+
   update public.attendance_sessions s
   set clock_out_at = coalesce(s.clock_out_at, now()),
       out_reason = coalesce(s.out_reason, 'auto_shift_end')
-  from open_sessions o
+  from open_sessions_tmp o
   where s.id = o.id;
 
   get diagnostics v_closed = row_count;
@@ -93,14 +109,17 @@ begin
   insert into public.violations (company_id, employee_id, type, category, severity, occurred_at, status, meta)
   select o.company_id, o.employee_id, 'no_checkout', 'attendance', 'medium', now(), 'open',
          jsonb_build_object('session_id', o.id, 'shift_end', o.shift_end)
-  from open_sessions o
+  from open_sessions_tmp o
   where not exists (
     select 1 from public.violations v
     where v.employee_id = o.employee_id
       and v.type = 'no_checkout'
       and v.status in ('open', 'acknowledged')
       and v.occurred_at > now() - interval '1 day'
+  )
   on conflict do nothing;
+
+  drop table open_sessions_tmp;
 
   return v_closed;
 end;
@@ -147,6 +166,7 @@ begin
         and v.type = 'idle_no_movement'
         and v.status in ('open', 'acknowledged')
         and v.occurred_at > now() - interval '1 day'
+    )
   on conflict do nothing;
 
   get diagnostics v_created = row_count;
@@ -223,6 +243,7 @@ begin
         and v.type = 'presence_check_missed'
         and v.status in ('open', 'acknowledged')
         and v.occurred_at > now() - interval '1 day'
+    )
   on conflict do nothing;
 
   return v_created;
