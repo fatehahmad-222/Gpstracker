@@ -12,6 +12,17 @@ const AuthContext = createContext({
   signOut: async () => {},
 });
 
+/**
+ * A signed-in user we cannot render anything for. Both cases route to
+ * /inactive, which signs the session out — redirecting to /login instead would
+ * bounce straight back via middleware and loop. See lib/authGuard.js.
+ */
+function unusableDestination(profile) {
+  if (profile?.is_active === false) return "/inactive?reason=deactivated";
+  if (!profile) return "/inactive?reason=missing";
+  return null;
+}
+
 export function AuthProvider({ children }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -23,15 +34,23 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return;
     }
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, role, phone, avatar_url, created_at, is_active")
       .eq("id", userId)
       .maybeSingle();
-    setProfile(data ?? null);
-    if (data && data.is_active === false) {
-      router.replace("/login");
+
+    // A failed query is not the same as a missing row. Bail out without
+    // redirecting, or a network blip would sign everyone out.
+    if (error) {
+      console.error("Profile fetch failed:", error.message);
+      return;
     }
+
+    setProfile(data ?? null);
+
+    const destination = unusableDestination(data);
+    if (destination) router.replace(destination);
   }, [router]);
 
   const refreshProfile = useCallback(async () => {

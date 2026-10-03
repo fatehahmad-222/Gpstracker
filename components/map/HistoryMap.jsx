@@ -19,7 +19,7 @@ const endIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-export default function HistoryMap({ locations = [], tasks = [], live = null }) {
+export default function HistoryMap({ locations = [], tasks = [], live = null, fitKey }) {
   const path = useMemo(() => locations.map((l) => [l.lat, l.lng]), [locations]);
 
   const bounds = useMemo(() => {
@@ -35,7 +35,7 @@ export default function HistoryMap({ locations = [], tasks = [], live = null }) 
   return (
     <MapContainer center={[31.5497, 74.3436]} zoom={13} scrollWheelZoom className="h-full w-full">
       <OsmTiles />
-      <FitBounds bounds={bounds} />
+      <FitBounds bounds={bounds} fitKey={fitKey ?? `${path.length}:${tasks.length}`} />
 
       {path.length > 1 && (
         <Polyline

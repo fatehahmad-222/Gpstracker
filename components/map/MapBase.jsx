@@ -13,14 +13,29 @@ export function OsmTiles() {
   );
 }
 
-export function FitBounds({ bounds, padding = [50, 50], maxZoom = 16 }) {
+/**
+ * Fits the viewport to `bounds`.
+ *
+ * Two things this deliberately does NOT do:
+ *  - Depend on the `padding` array identity. A fresh `[50, 50]` default is a new
+ *    reference every render, which made the effect (and therefore fitBounds)
+ *    run on every render, so the map fought the user for control of the viewport.
+ *  - Refit whenever `bounds` changes. On a live fleet map bounds change every
+ *    time a position streams in, so panning was impossible.
+ *
+ * Callers pass `fitKey`: refit happens only when that changes (an employee joins
+ * or leaves, the date range changes, a task is focused).
+ */
+export function FitBounds({ bounds, padding = [50, 50], maxZoom = 16, fitKey }) {
   const map = useMap();
-  const key = bounds ? bounds.map((b) => b.join(",")).join("|") : "";
+  const paddingKey = Array.isArray(padding) ? padding.join(",") : String(padding);
+  const key =
+    fitKey ?? (bounds && bounds.length > 0 ? bounds.map((b) => b.join(",")).join("|") : "");
 
   useEffect(() => {
     if (!bounds || bounds.length === 0) return;
     map.fitBounds(L.latLngBounds(bounds), { padding, maxZoom });
-  }, [map, key, maxZoom, padding]);
+  }, [map, key, maxZoom, paddingKey]);
 
   return null;
 }

@@ -35,7 +35,8 @@ export default function EmployeesPage() {
   };
 
   const visible = useMemo(() => {
-    const base = showDeactivated ? [...profiles, ...(inactive ?? [])] : profiles;
+    // Copy before sorting — `profiles` is state owned by useLiveOverview.
+    const base = showDeactivated ? [...profiles, ...(inactive ?? [])] : [...profiles];
     return base.sort((a, b) =>
       (a.full_name || "").localeCompare(b.full_name || "")
     );
