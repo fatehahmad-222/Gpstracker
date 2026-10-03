@@ -1,7 +1,7 @@
-﻿import ComingSoonPage from "../ComingSoonPage";
+﻿import { LeaveManager } from "@/components/monitor/leaves/LeaveManager";
 
-export const metadata = { title: "Leaves" };
+export const metadata = { title: "Leave Requests" };
 
 export default function Page() {
-  return <ComingSoonPage title="Leaves" description="Leave requests and approvals. The dashboard counters already read this data." />;
+  return <LeaveManager />;
 }

@@ -1,7 +1,7 @@
-﻿import ComingSoonPage from "../ComingSoonPage";
+﻿import { TaskManager } from "@/components/monitor/tasks/TaskManager";
 
-export const metadata = { title: "Task Manager" };
+export const metadata = { title: "Field Tasks" };
 
 export default function Page() {
-  return <ComingSoonPage title="Task Manager" description="Assign and track field tasks. The dashboard counters already read this data." />;
+  return <TaskManager />;
 }
