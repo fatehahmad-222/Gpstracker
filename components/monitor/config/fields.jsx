@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
  * form can use the same field markup without importing the org-unit screen.
  */
 
-export function Field({ label, hint, error, required, children }) {
+export function Field({ label, hint, error, required, className, children }) {
   return (
-    <label className="block">
+    <label className={cn("block", className)}>
       <span className="mb-1 flex items-center gap-1.5 text-label font-semibold uppercase text-ink-dim">
         {label}
         {required ? <span className="text-crit">*</span> : null}

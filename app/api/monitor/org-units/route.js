@@ -4,7 +4,7 @@ import {
   ORG_UNITS,
   createSchemaFor,
   listOrgUnits,
-  listEmployees,
+  listEmployeesForPicker,
   createOrgUnit,
   describeOrgUnit,
 } from "@/lib/server/orgUnits";
@@ -37,7 +37,7 @@ export async function GET(request) {
 
   try {
     if (kind === "employees") {
-      const rows = await listEmployees(ctx.supabase, {
+      const rows = await listEmployeesForPicker(ctx.supabase, {
         companyId: ctx.companyId,
         departmentId: searchParams.get("department_id") || null,
         search: searchParams.get("search") || null,
