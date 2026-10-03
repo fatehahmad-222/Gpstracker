@@ -266,6 +266,17 @@ end;
 $fn$;
 
 revoke execute on function public.reconcile_geofence_session(uuid, uuid, double precision, double precision, timestamptz) from public;
+-- `revoke ... from public` is not enough on Supabase. The platform grants EXECUTE
+-- on new functions in this schema to anon and authenticated out of the box, so a
+-- SECURITY DEFINER function is reachable by any signed-in account even when the
+-- migration never mentions it -- measured on this project, all 18 SECURITY DEFINER
+-- functions in public were executable by `authenticated`.
+--
+-- That matters here more than anywhere else: this function opens and closes
+-- attendance sessions from caller-supplied coordinates, so leaving it executable by
+-- `authenticated` would let any employee role invent their own punch, in any
+-- company, at any timestamp. 0016 closed this for anon and missed authenticated.
+revoke execute on function public.reconcile_geofence_session(uuid, uuid, double precision, double precision, timestamptz) from authenticated;
 grant execute on function public.reconcile_geofence_session(uuid, uuid, double precision, double precision, timestamptz) to service_role;
 
 comment on function public.reconcile_geofence_session(uuid, uuid, double precision, double precision, timestamptz) is
