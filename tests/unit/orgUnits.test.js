@@ -8,7 +8,7 @@ import {
   createOrgUnit,
   updateOrgUnit,
   deleteOrgUnit,
-  listEmployees,
+  listEmployeesForPicker,
   describeOrgUnit,
 } from "@/lib/server/orgUnits";
 
@@ -396,11 +396,11 @@ describe("deleteOrgUnit", () => {
   });
 });
 
-describe("listEmployees", () => {
+describe("listEmployeesForPicker", () => {
   it("returns only active employees for the company", async () => {
     const supabase = fakeSupabase({ employees: { data: [{ id: "e1", name: "Ali" }] } });
 
-    const rows = await listEmployees(supabase, { companyId: COMPANY });
+    const rows = await listEmployeesForPicker(supabase, { companyId: COMPANY });
 
     expect(rows).toHaveLength(1);
     const call = supabase.calls[0];
@@ -411,7 +411,7 @@ describe("listEmployees", () => {
   it("strips filter syntax from a search term", async () => {
     const supabase = fakeSupabase({ employees: { data: [] } });
 
-    await listEmployees(supabase, {
+    await listEmployeesForPicker(supabase, {
       companyId: COMPANY,
       search: 'ali",name.eq.bob),(x),%',
     });

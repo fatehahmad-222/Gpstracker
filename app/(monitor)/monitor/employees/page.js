@@ -1,7 +1,7 @@
-﻿import ComingSoonPage from "../ComingSoonPage";
+﻿import { EmployeeManager } from "@/components/monitor/employees/EmployeeManager";
 
 export const metadata = { title: "Employees" };
 
 export default function Page() {
-  return <ComingSoonPage title="Employees" description="The company directory and its complete job history." />;
+  return <EmployeeManager />;
 }

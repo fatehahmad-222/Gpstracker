@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { hashAppPassword, verifyAppPassword, needsRehash } from "@/lib/monitor/password";
+import {
+  hashAppPassword,
+  verifyAppPassword,
+  needsRehash,
+  generateAppPassword,
+} from "@/lib/monitor/password";
+import { passwordChecklist } from "@/lib/monitor/validation";
 
 describe("hashAppPassword", () => {
   it("never stores the plaintext", () => {
@@ -73,5 +79,45 @@ describe("needsRehash", () => {
 
   it("flags a legacy non-scrypt hash", () => {
     expect(needsRehash("sha256$abc")).toBe(true);
+  });
+});
+
+describe("generateAppPassword", () => {
+  it("always satisfies the form's own password rules", () => {
+    for (let i = 0; i < 200; i += 1) {
+      const password = generateAppPassword();
+      const failed = passwordChecklist(password).filter((r) => !r.ok);
+      if (failed.length) {
+        throw new Error(`generated password failed ${failed.map((f) => f.key).join(", ")}: ${password}`);
+      }
+    }
+  });
+
+  it("honours a requested length, with a floor", () => {
+    expect(generateAppPassword(16)).toHaveLength(16);
+    expect(generateAppPassword(20)).toHaveLength(20);
+    // Never shorter than the 8-character rule.
+    expect(generateAppPassword(4)).toHaveLength(12);
+  });
+
+  it("avoids characters that are ambiguous when written on paper", () => {
+    for (let i = 0; i < 100; i += 1) {
+      expect(generateAppPassword()).not.toMatch(/[lI1O0S5Z2B8]/);
+    }
+  });
+
+  it("does not repeat itself across calls", () => {
+    const seen = new Set(Array.from({ length: 50 }, () => generateAppPassword()));
+    expect(seen.size).toBe(50);
+  });
+
+  it("produces a password that verifies against its own hash", () => {
+    const password = generateAppPassword();
+    expect(verifyAppPassword(password, hashAppPassword(password))).toBe(true);
+  });
+
+  it("does not always place the same classes in the same positions", () => {
+    const firstChars = new Set(Array.from({ length: 60 }, () => generateAppPassword()[0]));
+    expect(firstChars.size).toBeGreaterThan(3);
   });
 });
