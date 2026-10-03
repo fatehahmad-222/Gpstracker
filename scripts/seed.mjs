@@ -344,6 +344,63 @@ async function main() {
   }
   await upsert("employee_geofences", assignmentRows, "employee_id,geofence_id");
 
+  // --- latest positions -------------------------------------------------
+  // The live map reads this projection, so seed it or the first run shows an
+  // empty map. Most people are placed at their assigned fence, a few are
+  // deliberately outside it, and one is left with no fix at all so the
+  // "never reported" state is visible without having to unplug a phone.
+  await db.from("employee_positions").delete().eq("company_id", COMPANY_ID);
+
+  const placedAt = {
+    "Sialkot Head Office": PLACES.sialkotOffice,
+    "Sialkot Warehouse Hub": PLACES.sialkotHub,
+    "Gujranwala Branch": PLACES.gujranwala,
+    "Lahore Regional Office": PLACES.lahoreOffice,
+    "Lahore Distribution Hub": PLACES.lahoreHub,
+    "Faisalabad Depot": PLACES.faisalabad,
+  };
+
+  const positionRows = [];
+  for (const seed of seedEmployees) {
+    const employee = employeeByCode[seed.emp_code];
+    if (!employee || employee.deleted_at) continue;
+
+    // Every 9th employee has no fix yet.
+    if (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 9 === 0) continue;
+
+    const assigned = assignmentRows
+      .filter((row) => row.employee_id === employee.id)
+      .map((row) => geofences.find((g) => g.id === row.geofence_id))
+      .filter(Boolean);
+
+    const home = placedAt[assigned[0]?.name] || PLACES.sialkotOffice;
+
+    // Every 7th is nudged ~1.2 km off their fence, so "outside" has real data.
+    const stray = seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 7 === 0;
+    const jitter = (n, scale) => n + (((seed.emp_code.length * 7 + n) % 13) - 6) * scale;
+
+    const ageSeconds = (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 25) * 60;
+
+    positionRows.push({
+      company_id: COMPANY_ID,
+      employee_id: employee.id,
+      lat: jitter(home.lat, stray ? 0.011 : 0.002),
+      lng: jitter(home.lng, stray ? 0.013 : 0.002),
+      accuracy: 8 + (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 20),
+      speed: stray ? 0.9 : 0.05,
+      heading: (seed.emp_code.charCodeAt(seed.emp_code.length - 1) * 11) % 360,
+      battery: 12 + (seed.emp_code.charCodeAt(seed.emp_code.length - 1) * 3) % 88,
+      recorded_at: new Date(Date.now() - ageSeconds * 1000).toISOString(),
+    });
+  }
+
+  if (positionRows.length) {
+    const { error: positionError } = await db
+      .from("employee_positions")
+      .upsert(positionRows, { onConflict: "employee_id" });
+    if (positionError) throw positionError;
+  }
+
   // --- policies --------------------------------------------------------
   await db.from("presence_checks").delete().eq("company_id", COMPANY_ID);
   await db.from("policies").delete().eq("company_id", COMPANY_ID);
@@ -552,6 +609,7 @@ async function main() {
   console.log(`  employees:  ${employees.length}`);
   console.log(`  departments:${departments.length}  sub-departments: ${subDepartments.length}  designations: ${designations.length}`);
   console.log(`  geofences:  ${geofences.length}`);
+  console.log(`  positions:  ${positionRows.length}`);
   console.log(`  policies:   ${POLICIES.length}`);
   console.log(`  sessions:   ${sessions.length}`);
   console.log(`  pings:      ${pings.length}`);

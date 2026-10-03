@@ -89,6 +89,15 @@
   --ink-dim: 104 116 134;
   --accent: var(--brand);
   --accent-strong: var(--brand-strong);
+  /* Semantic state colours.
+     `ok` is the success green and `warn` the attention amber. They are declared
+     per scope rather than reused from the app's `accent`/`warning` because the
+     monitor reads as a light-first surface and the alert trio (ok / warn / crit)
+     has to stay visually distinct from navigation colour. */
+  --ok: 22 138 74;
+  --ok-tint: 233 247 238;
+  --warn: 194 108 12;
+  --warn-tint: 253 244 231;
   color-scheme: light;
 }
 
@@ -319,4 +328,81 @@
     transform: scale(2.2);
     opacity: 0;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Geofence map labels and drawing controls.
+   Leaflet injects these into the map pane, outside the module's Tailwind
+   scope, so they are plain CSS keyed off the fence's own colour variable.
+   -------------------------------------------------------------------------- */
+.fence-label {
+  display: inline-block;
+  transform: translate(-50%, -140%);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.92);
+  border: 1px solid var(--fence-color, #2563eb);
+  color: rgb(var(--ink));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 0.18);
+  cursor: pointer;
+}
+
+.fence-label.is-selected {
+  background: var(--fence-color, #2563eb);
+  color: #fff;
+  border-color: var(--fence-color, #2563eb);
+}
+
+.fence-draw-controls {
+  display: flex;
+  gap: 4px;
+  margin: 8px;
+}
+
+.fence-draw-controls button {
+  padding: 3px 9px;
+  border-radius: 9999px;
+  border: 1px solid rgb(var(--line));
+  background: rgb(255 255 255 / 0.95);
+  color: rgb(var(--ink));
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fence-draw-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fence-draw-controls button:not(:disabled):hover {
+  border-color: rgb(var(--brand));
+}
+
+/* Live-map employee pin. --pin is set per marker from the position's state, so
+   the colour always matches the legend without a class per combination. */
+.live-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: var(--pin, #64748b);
+  border: 2px solid #fff;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.35);
+  cursor: pointer;
+}
+
+.live-marker.is-selected {
+  border-color: rgb(var(--ink));
+  transform: scale(1.15);
 }
