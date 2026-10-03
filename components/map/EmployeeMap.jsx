@@ -31,7 +31,10 @@ export default function EmployeeMap({ position, accuracy, tasks = [], focusTaskI
   return (
     <MapContainer center={center} zoom={13} scrollWheelZoom className="h-full w-full">
       <OsmTiles />
-      <FitBounds bounds={bounds} />
+      <FitBounds
+        bounds={bounds}
+        fitKey={`${focusTaskId ?? "all"}:${tasks.length}`}
+      />
       {focusTask && <FlyTo center={[focusTask.target_lat, focusTask.target_lng]} />}
       <MyPositionMarker position={position} accuracy={accuracy} />
 

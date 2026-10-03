@@ -44,6 +44,8 @@ export default function EmployeeProfilePage() {
   }));
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
     if (!employeeId) return;
@@ -58,6 +60,7 @@ export default function EmployeeProfilePage() {
       else setProfile(p.data);
       setLive(l.data ?? null);
       setTasks(t.data ?? []);
+      setProfileLoaded(true);
     });
     return () => {
       mounted = false;
@@ -68,15 +71,21 @@ export default function EmployeeProfilePage() {
     async (rng) => {
       if (!employeeId) return;
       setLocations(null);
+      // Newest-first so the limit keeps the *most recent* fixes; ascending order
+      // with a limit would return the oldest ones and drop the live end of the
+      // trail on busy days.
       const { data } = await supabase
         .from("locations")
         .select("lat, lng, recorded_at, accuracy")
         .eq("employee_id", employeeId)
         .gte("recorded_at", rng.from)
         .lte("recorded_at", rng.to)
-        .order("recorded_at", { ascending: true })
+        .order("recorded_at", { ascending: false })
         .limit(MAX_HISTORY_POINTS);
-      setLocations(data ?? []);
+      const rows = data ?? [];
+      setTruncated(rows.length === MAX_HISTORY_POINTS);
+      // Restore chronological order for the polyline.
+      setLocations(rows.slice().reverse());
     },
     [employeeId]
   );
@@ -86,16 +95,31 @@ export default function EmployeeProfilePage() {
   }, [loadHistory, range]);
 
   function handleDateChange(field, value) {
-    setDateInputs((prev) => {
-      const next = { ...prev, [field]: value };
-      const from = new Date(`${next.from}T00:00:00`);
-      const to = new Date(`${next.to}T23:59:59.999`);
-      setRange({
-        from: from.toISOString(),
-        to: to.toISOString(),
-      });
-      return next;
-    });
+    let next = { ...dateInputs, [field]: value };
+
+    // An empty or partial date input is not a range — leave the current one
+    // alone rather than building an Invalid Date.
+    if (!next.from || !next.to) {
+      setDateInputs(next);
+      return;
+    }
+
+    let from = new Date(`${next.from}T00:00:00`);
+    let to = new Date(`${next.to}T23:59:59.999`);
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+      setDateInputs(next);
+      return;
+    }
+
+    // Picked in reverse — query the span between them and show it that way too,
+    // so the inputs never disagree with what's on the map.
+    if (from > to) {
+      [from, to] = [to, from];
+      next = { from: next.to, to: next.from };
+    }
+
+    setDateInputs(next);
+    setRange({ from: from.toISOString(), to: to.toISOString() });
   }
 
   const employee = useMemo(() => (profile ? [profile] : []), [profile]);
@@ -115,11 +139,25 @@ export default function EmployeeProfilePage() {
   }
 
   if (!profile) {
+    if (!profileLoaded) {
+      return (
+        <div className="space-y-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-96" />
+        </div>
+      );
+    }
+
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-24" />
-        <Skeleton className="h-96" />
-      </div>
+      <EmptyState
+        title="Employee not found"
+        description="This profile no longer exists — the account may have been deleted."
+        action={
+          <Button variant="secondary" href="/dashboard/employees">
+            Back to employees
+          </Button>
+        }
+      />
     );
   }
 
@@ -200,6 +238,7 @@ export default function EmployeeProfilePage() {
             locations={locations ?? []}
             tasks={tasks ?? []}
             live={live}
+            fitKey={`${employeeId}:${range.from}:${range.to}`}
           />
         </div>
 
@@ -207,6 +246,13 @@ export default function EmployeeProfilePage() {
           <div className="px-5 py-4 text-sm text-ink-dim">
             No location fixes recorded in this range — the path will render as
             fixes stream in.
+          </div>
+        )}
+
+        {truncated && locations && locations.length > 0 && (
+          <div className="border-t border-line px-5 py-3 text-xs text-ink-dim">
+            Showing the most recent {MAX_HISTORY_POINTS.toLocaleString()} fixes in
+            this range. Narrow the dates to see the full path.
           </div>
         )}
       </div>

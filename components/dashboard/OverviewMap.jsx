@@ -62,10 +62,17 @@ export default function OverviewMap({
     [markers]
   );
 
+  // Refit only when the set of reporting employees changes — not on every
+  // position update, which would make panning impossible.
+  const fitKey = useMemo(
+    () => markers.map((m) => m.profile.id).sort().join("|"),
+    [markers]
+  );
+
   return (
     <MapContainer center={[31.5497, 74.3436]} zoom={12} scrollWheelZoom className="h-full w-full">
       <OsmTiles />
-      <FitBounds bounds={bounds} />
+      <FitBounds bounds={bounds} fitKey={fitKey} />
       <PoiLayer />
 
       {focus && <FlyTo center={[focus.lat, focus.lng]} />}

@@ -41,11 +41,14 @@ export function useOwnTasks(userId) {
           if (!mounted) return;
           setTasks((prev) => {
             const list = prev ?? [];
-            if (payload.eventType === "DELETE") {
-              return list.filter((t) => t.id !== payload.old.id);
+            const id = payload.new?.id ?? payload.old?.id;
+            // DELETE has no `new`, and an event can land before the initial
+            // fetch resolves — treat both as a removal rather than prepending
+            // a null row.
+            if (payload.eventType === "DELETE" || !payload.new) {
+              return list.filter((t) => t?.id !== id);
             }
-            const others = list.filter((t) => t.id !== (payload.new?.id ?? payload.old?.id));
-            return [payload.new, ...others];
+            return [payload.new, ...list.filter((t) => t?.id !== id)];
           });
         }
       )

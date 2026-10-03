@@ -3,12 +3,19 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { LogIn, Loader2, AlertCircle } from "lucide-react";
+import { LogIn, Loader2, AlertCircle, Info } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { getHomePath } from "@/lib/authHelpers";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+
+const REASON_COPY = {
+  deactivated:
+    "That account has been deactivated by an administrator. Contact them if you think this is a mistake.",
+  "no-profile":
+    "We couldn’t find a profile for that account. Ask an administrator to check it.",
+};
 
 function LoginForm() {
   const router = useRouter();
@@ -17,6 +24,8 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  const notice = REASON_COPY[searchParams.get("reason")];
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -68,6 +77,13 @@ function LoginForm() {
           />
         </Field>
       </div>
+
+      {notice && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2.5 text-sm text-ink-dim">
+          <Info size={16} className="mt-0.5 shrink-0" />
+          <span>{notice}</span>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2.5 text-sm text-danger">

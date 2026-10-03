@@ -1,16 +1,12 @@
-import { redirect } from "next/navigation";
-import { getProfile, getSession } from "@/lib/supabaseServer";
+import { requireSignedIn } from "@/lib/authGuard";
 
 export const metadata = {
   title: "Fleet Console",
 };
 
 export default async function HomePage() {
-  const user = await getSession();
-  if (!user) redirect("/login");
-
-  const profile = await getProfile();
-  if (profile && profile.is_active === false) redirect("/login");
-  if (profile?.role === "admin") redirect("/dashboard");
-  redirect("/app");
+  // Resolves the session, profile and role in one place and always redirects:
+  // anon -> /login, deactivated/profile-less -> /inactive, otherwise the app.
+  await requireSignedIn();
+  return null;
 }

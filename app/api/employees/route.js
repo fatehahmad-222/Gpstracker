@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient, getSession } from "@/lib/supabaseServer";
+import { AUTH_KIND, resolveAuth } from "@/lib/authGuard";
 import { createAdminClient } from "@/lib/supabaseAdmin";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/employees — admin creates an employee account directly.
- * Verifies the caller is an active admin from their session cookie, then uses
- * the service-role client to create the auth user. The profiles row is created
- * automatically by the on_auth_user_created trigger.
+ * Resolves the caller through the shared guard (so the role rule can't drift
+ * from the layouts), then uses the service-role client to create the auth user.
+ * The profiles row is created automatically by the on_auth_user_created trigger.
  */
 export async function POST(request) {
-  const user = await getSession();
-  if (!user) {
+  const auth = await resolveAuth();
+
+  if (auth.kind === AUTH_KIND.ANON) {
     return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const supabase = createSupabaseServerClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, role, is_active")
-    .eq("id", user.id)
-    .maybeSingle();
+  // Deactivated or profile-less: authenticated, but not allowed to act.
+  if (auth.kind !== AUTH_KIND.OK) {
+    return NextResponse.json({ error: "Admins only." }, { status: 403 });
+  }
 
-  if (profile?.role !== "admin" || profile.is_active === false) {
+  if (auth.profile.role !== "admin") {
     return NextResponse.json({ error: "Admins only." }, { status: 403 });
   }
 

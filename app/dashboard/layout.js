@@ -1,5 +1,4 @@
-import { redirect } from "next/navigation";
-import { getProfile, getSession } from "@/lib/supabaseServer";
+import { requireRole } from "@/lib/authGuard";
 import AdminShell from "@/components/dashboard/AdminShell";
 
 export const metadata = {
@@ -7,12 +6,7 @@ export const metadata = {
 };
 
 export default async function DashboardLayout({ children }) {
-  const user = await getSession();
-  if (!user) redirect("/login");
-
-  const profile = await getProfile();
-  if (profile && profile.is_active === false) redirect("/login");
-  if (profile?.role !== "admin") redirect("/app");
+  await requireRole("admin");
 
   return <AdminShell>{children}</AdminShell>;
 }
