@@ -41,6 +41,71 @@
   --info: 96 165 250;
 }
 
+/* ------------------------------------------------------------------ */
+/* GPS Work Force Monitor tokens.                                        */
+/*                                                                     */
+/* The monitor module ships its own light-first shell, so it must not   */
+/* inherit the app's dark-by-default palette. The `.mon` scope below   */
+/* re-declares the same semantic tokens on a descendant element, which  */
+/* wins over the inherited `.dark` values without touching them. The    */
+/* module therefore never uses `dark:` variants — semantic tokens only. */
+/* ------------------------------------------------------------------ */
+:root {
+  --brand: 31 127 107; /* #1F7F6B top bar */
+  --brand-strong: 15 90 70; /* #0F5A46 sidebar */
+  --brand-deep: 10 71 55;
+  --brand-tint: 233 246 242; /* pale green selection fill */
+  --brand-tint-2: 214 238 231;
+
+  --canvas: 245 246 250; /* #F5F6FA page background */
+  --card-line: 226 230 238;
+  --card-shadow: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 8px 24px -12px rgb(16 24 40 / 0.12);
+
+  --crit: 205 32 40;
+  --crit-tint: 253 240 240;
+  --high: 226 92 12;
+  --high-tint: 253 244 235;
+  --med: 190 132 6;
+  --med-tint: 253 248 231;
+
+  --navy: 24 33 56;
+  --navy-2: 34 45 72;
+
+  --tracker-bg: 8 11 22;
+  --tracker-surface: 17 22 38;
+  --tracker-line: 39 47 71;
+  --tracker-ink: 226 232 240;
+  --tracker-ink-dim: 138 151 178;
+  --tracker-accent: 129 116 255;
+}
+
+.mon {
+  --bg: var(--canvas);
+  --surface: 255 255 255;
+  --surface-2: 246 247 251;
+  --surface-3: 237 240 246;
+  --line: var(--card-line);
+  --ink: 20 27 38;
+  --ink-dim: 104 116 134;
+  --accent: var(--brand);
+  --accent-strong: var(--brand-strong);
+  color-scheme: light;
+}
+
+/* Dark "MetaXperts — Spatial Intelligence" tracker scope. */
+.mon-dark {
+  --bg: var(--tracker-bg);
+  --surface: var(--tracker-surface);
+  --surface-2: 23 29 47;
+  --surface-3: 31 39 60;
+  --line: var(--tracker-line);
+  --ink: var(--tracker-ink);
+  --ink-dim: var(--tracker-ink-dim);
+  --accent: var(--tracker-accent);
+  --accent-strong: 108 92 255;
+  color-scheme: dark;
+}
+
 @layer base {
   html,
   body {
