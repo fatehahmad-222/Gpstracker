@@ -29,6 +29,10 @@ const all = files.map((f) => readFileSync(join(MIGRATIONS_DIR, f), "utf8")).join
 
 const migration = "0019_monitor_geofence_attendance.sql";
 const sql = existsSync(join(MIGRATIONS_DIR, migration)) ? readFileSync(join(MIGRATIONS_DIR, migration), "utf8") : "";
+const retrySafety = "0020_monitor_attendance_retry_safety.sql";
+const retrySql = existsSync(join(MIGRATIONS_DIR, retrySafety)) ? readFileSync(join(MIGRATIONS_DIR, retrySafety), "utf8") : "";
+const grantSweep = "0021_monitor_revoke_authenticated_definers.sql";
+const grantSql = existsSync(join(MIGRATIONS_DIR, grantSweep)) ? readFileSync(join(MIGRATIONS_DIR, grantSweep), "utf8") : "";
 const ingest = readFileSync(join(process.cwd(), "lib", "server", "ingest.js"), "utf8");
 
 describe("attendance_sessions has a writer", () => {
@@ -175,5 +179,87 @@ describe("an employee with no assigned area is not punished for it", () => {
 describe("a stale retry cannot rewind attendance", () => {
   it("ignores a ping older than the newest position already held", () => {
     expect(sql).toMatch(/ep\.recorded_at > p_at/i);
+  });
+
+  it("and a redelivery of the very same ping is not counted as a new one", () => {
+    // The guard above cannot catch a retry on its own: a resend carries the same
+    // recorded_at, so the position compares equal rather than older and passes.
+    // Against 0019 that landed a second strike and closed the session on one real
+    // observation, breaking the agreed two-consecutive-pings rule.
+    expect(retrySql).not.toBe("");
+    expect(retrySql).toMatch(/add column if not exists last_reconciled_at/i);
+    expect(retrySql).toMatch(/p_at <= v_session\.last_reconciled_at/i);
+  });
+
+  it("records the ping as spent on every path that acts", () => {
+    // Inside, first strike and close each advance the mark; arrival records it on
+    // insert. Leaving any one path unrecorded would let that observation be
+    // reconsidered on a resend.
+    const stamps = retrySql.match(/last_reconciled_at\s*=\s*p_at/gi) || [];
+    expect(stamps).toHaveLength(3);
+    expect(retrySql).toMatch(/source,\s*last_reconciled_at/i);
+  });
+
+  it("keeps the guard inside the database rather than in the ingest handler", () => {
+    // Attendance feeds payroll. A future caller must not be able to break the
+    // invariant by forgetting to check, so this asserts the SQL owns it.
+    expect(retrySql).toMatch(/create or replace function public\.reconcile_geofence_session\(/i);
+  });
+});
+
+describe("signed-in users cannot drive SECURITY DEFINER functions directly", () => {
+  it("the sweep exists", () => {
+    expect(grantSql).not.toBe("");
+  });
+
+  it("revokes execute from authenticated, not only from public", () => {
+    // Supabase's platform default grants EXECUTE on new functions in `public` to
+    // anon AND authenticated. `revoke ... from public` alone leaves the function
+    // callable by any signed-in account, which for a SECURITY DEFINER function
+    // means the caller bypasses RLS entirely.
+    expect(grantSql).toMatch(/revoke execute on function .* from authenticated/i);
+  });
+
+  it("covers the functions that would let one tenant forge or destroy another's data", () => {
+    for (const fn of [
+      "upsert_employee_position",
+      "prune_location_history",
+      "auto_close_sessions",
+      "detect_idle",
+      "consume_api_quota",
+      "recompute_attendance_daily",
+      "schedule_presence_checks",
+      "write_audit",
+      "reconcile_geofence_session",
+    ]) {
+      expect(grantSql).toContain(`'${fn}'`);
+    }
+  });
+
+  it("fails loudly rather than skipping a function it cannot find", () => {
+    // A silently skipped revoke reads as a clean apply while leaving the
+    // function exposed, which is the failure mode this whole migration exists
+    // to prevent.
+    expect(grantSql).toMatch(/raise exception/i);
+    expect(grantSql).toMatch(/v_missing/i);
+  });
+
+  it("leaves start_task alone, or the employee app breaks", () => {
+    expect(grantSql).not.toContain("'start_task'");
+  });
+
+  it("leaves the RLS policy helpers alone, or every policy breaks", () => {
+    // These are evaluated as the querying role inside policy expressions, so they
+    // must stay executable by it.
+    for (const fn of [
+      "same_company",
+      "current_role",
+      "is_admin",
+      "is_company_admin_for",
+      "is_my_employee",
+      "current_company_id",
+    ]) {
+      expect(grantSql).not.toContain(`'${fn}'`);
+    }
   });
 });
