@@ -8,24 +8,51 @@ import { test, expect } from "@playwright/test";
  * not run. These assert the two boundaries that matter most and that must hold
  * even when everything else is misconfigured:
  *
- *  1. No monitor page renders for an anonymous visitor.
+ *  1. No console page renders for an anonymous visitor.
  *  2. The anonymous device endpoint refuses before it touches anything.
  *
  * The device endpoint is the one surface on this product reachable without a
  * session, so its refusal is asserted on the wire rather than through the UI.
  */
 
-const MONITOR_PAGES = [
-  "/monitor",
-  "/monitor/live-map",
-  "/monitor/employees",
-  "/monitor/alerts",
-  "/monitor/attendance",
-  "/monitor/configuration/devices",
+/**
+ * The merged console. Spelled out here rather than imported from lib/dashboard/nav
+ * on purpose: this list is meant to be an independent enumeration of the routes
+ * that must be closed, so a nav that loses an entry fails the unit test that
+ * compares nav against the filesystem, and fails to lose an entry here.
+ */
+const CONSOLE_PAGES = [
+  "/dashboard",
+  "/dashboard/command-center",
+  "/dashboard/live-map",
+  "/dashboard/employees",
+  "/dashboard/tasks",
+  "/dashboard/attendance",
+  "/dashboard/attendance/logs",
+  "/dashboard/alerts",
+  "/dashboard/leaves",
+  "/dashboard/geofencing",
+  "/dashboard/geofencing/routes",
+  "/dashboard/geofencing/pick",
+  "/dashboard/configuration/departments",
+  "/dashboard/configuration/sub-departments",
+  "/dashboard/configuration/designations",
+  "/dashboard/configuration/policies",
+  "/dashboard/configuration/devices",
 ];
 
+/** The field app, including the self-service attendance screen added for employees. */
+const EMPLOYEE_PAGES = ["/app", "/app/map", "/app/attendance"];
+
 test.describe("anonymous page access", () => {
-  for (const path of MONITOR_PAGES) {
+  for (const path of CONSOLE_PAGES) {
+    test(`${path} redirects to sign-in`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/login/);
+    });
+  }
+
+  for (const path of EMPLOYEE_PAGES) {
     test(`${path} redirects to sign-in`, async ({ page }) => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/login/);
@@ -40,17 +67,23 @@ test.describe("anonymous page access", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("legacy /dashboard still redirects to sign-in", async ({ page }) => {
-    // The monitor module must not have disturbed the pre-existing console.
+  test("the console root carries a next hint to return to", async ({ page }) => {
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/login/);
     await expect(page).toHaveURL(/next=/);
   });
 
-  test("legacy /app still redirects to sign-in", async ({ page }) => {
+  test("the employee app root carries a next hint to return to", async ({ page }) => {
     await page.goto("/app");
     await expect(page).toHaveURL(/\/login/);
     await expect(page).toHaveURL(/next=/);
+  });
+
+  test("the retired /monitor entry point does not resolve", async ({ page }) => {
+    // Folding the monitor product into the console removed this route. It must be
+    // a 404, not a silent redirect that leaves a stale bookmark half-working.
+    const response = await page.goto("/monitor");
+    expect(response.status()).toBe(404);
   });
 });
 
@@ -127,6 +160,9 @@ test.describe("staff-only API surface", () => {
     "/api/monitor/alerts",
     "/api/monitor/leaves",
     "/api/monitor/tasks",
+    // Employee self-service: closed to anonymous callers, and additionally scoped
+    // to the caller's own employee record once signed in.
+    "/api/app/attendance",
   ];
 
   for (const path of STAFF_ROUTES) {

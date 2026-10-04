@@ -19,11 +19,20 @@ module.exports = {
         "ink-dim": "rgb(var(--ink-dim) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
         "accent-strong": "rgb(var(--accent-strong) / <alpha-value>)",
+        "accent-tint": "rgb(var(--accent-tint) / <alpha-value>)",
+        success: "rgb(var(--success) / <alpha-value>)",
+        "success-tint": "rgb(var(--success-tint) / <alpha-value>)",
         warning: "rgb(var(--warning) / <alpha-value>)",
+        "warning-tint": "rgb(var(--warning-tint) / <alpha-value>)",
         danger: "rgb(var(--danger) / <alpha-value>)",
+        "danger-tint": "rgb(var(--danger-tint) / <alpha-value>)",
         info: "rgb(var(--info) / <alpha-value>)",
+        "info-tint": "rgb(var(--info-tint) / <alpha-value>)",
 
-        // --- GPS Work Force Monitor ---
+        // --- Legacy GPS Work Force Monitor token names ---
+        // Aliases onto the palette above, kept so the pages that arrived from
+        // /monitor render in the admin's colours in both themes. Prefer the app
+        // tokens above in new code.
         canvas: "rgb(var(--canvas) / <alpha-value>)",
         brand: "rgb(var(--brand) / <alpha-value>)",
         "brand-strong": "rgb(var(--brand-strong) / <alpha-value>)",

@@ -1,75 +1,116 @@
 import { describe, it, expect } from "vitest";
+import { existsSync } from "node:fs";
+import path from "node:path";
 
-import { canAccessPath, NAV_HREFS, EMPLOYEE_ALLOWED_PREFIXES } from "@/lib/monitor/nav";
+import { NAV, NAV_HREFS, isNavItemActive, activeGroupKey } from "@/lib/dashboard/nav";
 
 /**
- * `canAccessPath` became load-bearing in the monitor shell: it is what stops a
- * staff-only page rendering for an employee who typed the URL. The sidebar has
- * always hidden links an employee may not open, so these tests are the guard
- * against the two halves disagreeing.
+ * Folding the standalone /monitor product into /dashboard replaced one sidebar
+ * over a fixed tree with one sidebar over ~20 routes. The failure mode that
+ * creates is a nav entry pointing at a route that does not exist, or an existing
+ * route nobody linked -- both are silent, so they are pinned here.
+ *
+ * Note what this file no longer tests: employee reachability per nav item. That
+ * is now structural -- every console route sits under app/dashboard/layout.js,
+ * which calls requireRole("admin", "viewer"). An employee cannot render any of
+ * them however the sidebar draws them, so a per-item access table would be a
+ * second, weaker copy of a decision the layout already makes.
  */
 
-const isEmployeeReachable = (href) =>
-  EMPLOYEE_ALLOWED_PREFIXES.some((p) => href === p || href.startsWith(`${p}/`));
+const APP_DIR = path.join(process.cwd(), "app");
 
-const STAFF_ONLY = NAV_HREFS.filter((href) => !isEmployeeReachable(href));
+/**
+ * `/dashboard/geofencing/routes` -> the page file that must exist for it.
+ *
+ * This repo's pages are `.js`, not `.jsx`, so both are accepted rather than
+ * hard-coding one and silently passing against a renamed directory.
+ */
+function routeFileFor(href) {
+  const dir = path.join(APP_DIR, href.replace(/^\//, ""));
+  return ["page.js", "page.jsx"].map((f) => path.join(dir, f));
+}
 
-describe("canAccessPath", () => {
-  it("lets admins and viewers reach everything", () => {
-    for (const role of ["admin", "viewer"]) {
-      for (const href of NAV_HREFS) {
-        expect(canAccessPath(href, role)).toBe(true);
-      }
-    }
-  });
+const hasRoute = (href) => routeFileFor(href).some(existsSync);
 
-  it("denies an employee every staff-only nav destination", () => {
-    // Guards the test itself: if attendance or tracker moved out of
-    // EMPLOYEE_ALLOWED_PREFIXES without updating it, this would pass vacuously.
-    expect(STAFF_ONLY.length).toBeGreaterThan(0);
-    for (const href of STAFF_ONLY) {
-      expect(canAccessPath(href, "employee")).toBe(false);
-    }
-  });
-
-  it("still allows an employee their own attendance view", () => {
-    // The one staff-shaped screen an employee is meant to open: their own hours.
-    expect(canAccessPath("/monitor/attendance", "employee")).toBe(true);
-    expect(canAccessPath("/monitor/attendance/logs", "employee")).toBe(true);
-  });
-
-  it("allows the tracker area to an employee", () => {
-    expect(canAccessPath("/tracker", "employee")).toBe(true);
-    expect(canAccessPath("/tracker/live", "employee")).toBe(true);
-  });
-
-  it("agrees with its own prefix list on every nav destination", () => {
-    // The invariant the shell depends on: no nav entry may be visible to an
-    // employee and denied by the gate, or the sidebar would link to a page that
-    // immediately bounces.
+describe("console nav", () => {
+  it("points only at routes inside /dashboard", () => {
+    // The old product lived at /monitor. Any surviving href is a dead link.
     for (const href of NAV_HREFS) {
-      expect(canAccessPath(href, "employee")).toBe(isEmployeeReachable(href));
+      expect(href === "/dashboard" || href.startsWith("/dashboard/")).toBe(true);
     }
   });
 
-  it("does not let a prefix match leak into a sibling route", () => {
-    // "/monitor/attendancesomething" is not the attendance screen.
-    expect(canAccessPath("/monitor/attendancesomething", "employee")).toBe(false);
-    expect(canAccessPath("/monitor/attendanceX", "employee")).toBe(false);
-    expect(canAccessPath("/trackerboard", "employee")).toBe(false);
+  it("has a page for every nav entry", () => {
+    const missing = NAV_HREFS.filter((href) => !hasRoute(href));
+    expect(missing).toEqual([]);
   });
 
-  it("denies an unknown or missing role rather than defaulting to allow", () => {
-    // Failing closed matters here: a role the code does not recognise must not be
-    // treated as staff.
-    for (const role of [undefined, null, "", "superuser", "Admin"]) {
-      expect(canAccessPath("/monitor/employees", role)).toBe(false);
+  it("lists each destination once", () => {
+    expect(NAV_HREFS.length).toBe(new Set(NAV_HREFS).size);
+  });
+
+  it("gives every entry a label and a real icon component", () => {
+    for (const item of NAV.flatMap((i) => [i, ...(i.children || [])])) {
+      expect(item.label).toBeTruthy();
+      // The old nav stored icon *names* as strings and needed a parallel lookup
+      // table beside it. These are imported lucide components -- forwardRef
+      // objects, so `typeof` is "object", not "function".
+      expect(typeof item.icon).not.toBe("string");
+      expect(item.icon).toBeTruthy();
+      expect(item.icon.$$typeof).toBe(Symbol.for("react.forward_ref"));
     }
   });
 
-  it("handles a missing pathname without throwing", () => {
-    expect(canAccessPath(undefined, "admin")).toBe(true);
-    expect(canAccessPath(undefined, "employee")).toBe(false);
-    expect(canAccessPath("", "employee")).toBe(false);
+  it("keeps planned tabs visible but flagged", () => {
+    // Placeholders stay listed so the console's shape is visible while it is
+    // built, and muted so they do not read as working.
+    const planned = NAV.filter((i) => i.planned);
+    expect(planned.length).toBeGreaterThan(0);
+    for (const item of planned) {
+      expect(item.label).toBeTruthy();
+      expect(hasRoute(item.href)).toBe(true);
+    }
+  });
+});
+
+describe("isNavItemActive", () => {
+  const attendance = NAV.find((i) => i.href === "/dashboard/attendance");
+  const overview = NAV.find((i) => i.href === "/dashboard");
+
+  it("lights the console root only when exactly there", () => {
+    expect(isNavItemActive(overview, "/dashboard")).toBe(true);
+    expect(isNavItemActive(overview, "/dashboard/tasks")).toBe(false);
+  });
+
+  it("matches a group from either its own route or a child's", () => {
+    expect(isNavItemActive(attendance, "/dashboard/attendance")).toBe(true);
+    expect(isNavItemActive(attendance, "/dashboard/attendance/logs")).toBe(true);
+  });
+
+  it("does not leak a match into a sibling that shares a prefix", () => {
+    // The bug this guards: a bare startsWith would light "Attendance" while the
+    // browser is on /dashboard/attendanceX.
+    expect(isNavItemActive(attendance, "/dashboard/attendanceX")).toBe(false);
+    expect(isNavItemActive(attendance, "/dashboard/attendance-logs")).toBe(false);
+  });
+
+  it("treats a missing href or pathname as inactive instead of throwing", () => {
+    expect(isNavItemActive({}, undefined)).toBe(false);
+    expect(isNavItemActive(attendance, undefined)).toBe(false);
+    expect(isNavItemActive(attendance, "")).toBe(false);
+  });
+});
+
+describe("activeGroupKey", () => {
+  it("names the group that owns a nested route, for auto-expand", () => {
+    expect(activeGroupKey("/dashboard/attendance/logs")).toBe("/dashboard/attendance");
+    expect(activeGroupKey("/dashboard/configuration/devices")).toBe(
+      "/dashboard/configuration/departments"
+    );
+  });
+
+  it("returns null for a route no group owns", () => {
+    expect(activeGroupKey("/dashboard/tasks")).toBeNull();
+    expect(activeGroupKey("/dashboard")).toBeNull();
   });
 });

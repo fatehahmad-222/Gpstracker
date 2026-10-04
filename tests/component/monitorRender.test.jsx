@@ -21,7 +21,7 @@
  * "does this component render at all".
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 
 import { AlertManager } from "@/components/monitor/alerts/AlertManager";
 import { AttendanceLogs } from "@/components/monitor/attendance/AttendanceLogs";
@@ -31,8 +31,9 @@ import { DeviceManager } from "@/components/monitor/devices/DeviceManager";
 import { EmployeeManager } from "@/components/monitor/employees/EmployeeManager";
 import { LeaveManager } from "@/components/monitor/leaves/LeaveManager";
 import { PolicyManager } from "@/components/monitor/config/PolicyManager";
-import { MonitorSidebar } from "@/components/monitor/shell";
 import { TaskManager } from "@/components/monitor/tasks/TaskManager";
+import { NavList } from "@/components/dashboard/AdminShell";
+import { NAV } from "@/lib/dashboard/nav";
 
 const get = vi.fn(async () => ({ rows: [] }));
 
@@ -45,6 +46,17 @@ vi.mock("@/lib/monitor/client", () => ({
   },
   qs: () => "",
   ApiError: class ApiError extends Error {},
+}));
+
+// next/link wants the App Router runtime, which does not exist here. The nav
+// only uses href and aria-current, so a plain anchor is behaviourally identical
+// for what these tests assert.
+vi.mock("next/link", () => ({
+  default: ({ children, href, ...rest }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
 }));
 
 // Both of these reach for the Next router, which does not exist outside the App
@@ -92,7 +104,7 @@ const SCREENS = [
   ["LeaveManager", <LeaveManager key="leaves" />],
   ["TaskManager", <TaskManager key="tasks" />],
   ["PolicyManager", <PolicyManager key="policies" />],
-  ["MonitorSidebar", <MonitorSidebar key="sidebar" open pathname="/monitor" />],
+  ["NavList", <NavList key="nav" pathname="/dashboard" />],
 ];
 
 describe("monitor components mount", () => {
@@ -119,13 +131,39 @@ describe("the regression this file was written for", () => {
       spy.mockRestore();
     }
   });
+});
 
-  it("the sidebar can read its glyph table", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    try {
-      expect(() => render(<MonitorSidebar open pathname="/monitor" />)).not.toThrow();
-    } finally {
-      spy.mockRestore();
+/**
+ * The console sidebar replaced the old monitor sidebar, which owned its own glyph
+ * table keyed by icon *name*. The new nav imports lucide components directly, so
+ * the failure this guards against is a nav entry rendered without a usable icon.
+ */
+describe("the merged console nav", () => {
+  it("renders every top-level section", () => {
+    render(<NavList pathname="/dashboard" />);
+    for (const item of NAV) {
+      expect(screen.getAllByText(item.label).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("auto-expands the group that owns the current route", () => {
+    // A deep link must not land with its section collapsed, or the user cannot
+    // see which tab they are on.
+    render(<NavList pathname="/dashboard/attendance/logs" />);
+    expect(screen.getByText("Logs")).toBeTruthy();
+  });
+
+  it("marks the current route with aria-current", () => {
+    render(<NavList pathname="/dashboard/tasks" />);
+    const current = screen.getAllByRole("link").filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current.length).toBeGreaterThan(0);
+    expect(current[0].getAttribute("href")).toBe("/dashboard/tasks");
+  });
+
+  it("links nothing back to the removed /monitor product", () => {
+    render(<NavList pathname="/dashboard/configuration/departments" />);
+    for (const a of screen.getAllByRole("link")) {
+      expect(a.getAttribute("href")).not.toMatch(/^\/monitor/);
     }
   });
 });

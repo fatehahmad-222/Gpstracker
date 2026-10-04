@@ -21,9 +21,15 @@
   --ink-dim: 100 113 132;
   --accent: 16 172 108;
   --accent-strong: 11 130 84;
+  --accent-tint: 232 247 240;
+  --success: 22 138 74;
+  --success-tint: 233 247 238;
   --warning: 217 135 14;
+  --warning-tint: 253 244 231;
   --danger: 220 66 66;
+  --danger-tint: 253 240 240;
   --info: 51 122 220;
+  --info-tint: 235 243 254;
 }
 
 .dark {
@@ -36,83 +42,58 @@
   --ink-dim: 124 136 152;
   --accent: 52 226 138;
   --accent-strong: 24 190 116;
+  --accent-tint: 20 56 40;
+  --success: 74 222 128;
+  --success-tint: 20 56 38;
   --warning: 245 165 36;
+  --warning-tint: 61 44 12;
   --danger: 239 90 90;
+  --danger-tint: 61 26 28;
   --info: 96 165 250;
+  --info-tint: 24 40 66;
 }
 
 /* ------------------------------------------------------------------ */
-/* GPS Work Force Monitor tokens.                                        */
+/* Legacy GPS Work Force Monitor token names.                          */
 /*                                                                     */
-/* The monitor module ships its own light-first shell, so it must not   */
-/* inherit the app's dark-by-default palette. The `.mon` scope below   */
-/* re-declares the same semantic tokens on a descendant element, which  */
-/* wins over the inherited `.dark` values without touching them. The    */
-/* module therefore never uses `dark:` variants — semantic tokens only. */
+/* The monitor used to be a separate product under /monitor with its   */
+/* own light-first shell, and it carried its own green and its own     */
+/* alert trio. Those pages now live under /dashboard and share this   */
+/* one shell, so these names are kept only as aliases onto the app     */
+/* palette above. Anything still using `bg-brand` or `text-ok`         */
+/* therefore renders in the admin's colours, in both themes, instead   */
+/* of quietly keeping a second design system alive.                    */
+/*                                                                     */
+/* New code should prefer `accent` / `success` / `warning` /          */
+/* `danger` directly.                                                 */
 /* ------------------------------------------------------------------ */
 :root {
-  --brand: 31 127 107; /* #1F7F6B top bar */
-  --brand-strong: 15 90 70; /* #0F5A46 sidebar */
-  --brand-deep: 10 71 55;
-  --brand-tint: 233 246 242; /* pale green selection fill */
-  --brand-tint-2: 214 238 231;
+  /* Brand green -> accent */
+  --brand: var(--accent);
+  --brand-strong: var(--accent-strong);
+  --brand-deep: var(--accent-strong);
+  --brand-tint: var(--accent-tint);
+  --brand-tint-2: var(--accent-tint);
 
-  --canvas: 245 246 250; /* #F5F6FA page background */
-  --card-line: 226 230 238;
+  /* Page background -> bg */
+  --canvas: var(--bg);
+
   --card-shadow: 0 1px 2px 0 rgb(16 24 40 / 0.04), 0 8px 24px -12px rgb(16 24 40 / 0.12);
 
-  --crit: 205 32 40;
-  --crit-tint: 253 240 240;
-  --high: 226 92 12;
-  --high-tint: 253 244 235;
-  --med: 190 132 6;
-  --med-tint: 253 248 231;
+  /* Alert trio -> app semantics */
+  --ok: var(--success);
+  --ok-tint: var(--success-tint);
+  --warn: var(--warning);
+  --warn-tint: var(--warning-tint);
+  --crit: var(--danger);
+  --crit-tint: var(--danger-tint);
+  --high: var(--warning);
+  --high-tint: var(--warning-tint);
+  --med: var(--warning);
+  --med-tint: var(--warning-tint);
 
   --navy: 24 33 56;
   --navy-2: 34 45 72;
-
-  --tracker-bg: 8 11 22;
-  --tracker-surface: 17 22 38;
-  --tracker-line: 39 47 71;
-  --tracker-ink: 226 232 240;
-  --tracker-ink-dim: 138 151 178;
-  --tracker-accent: 129 116 255;
-}
-
-.mon {
-  --bg: var(--canvas);
-  --surface: 255 255 255;
-  --surface-2: 246 247 251;
-  --surface-3: 237 240 246;
-  --line: var(--card-line);
-  --ink: 20 27 38;
-  --ink-dim: 104 116 134;
-  --accent: var(--brand);
-  --accent-strong: var(--brand-strong);
-  /* Semantic state colours.
-     `ok` is the success green and `warn` the attention amber. They are declared
-     per scope rather than reused from the app's `accent`/`warning` because the
-     monitor reads as a light-first surface and the alert trio (ok / warn / crit)
-     has to stay visually distinct from navigation colour. */
-  --ok: 22 138 74;
-  --ok-tint: 233 247 238;
-  --warn: 194 108 12;
-  --warn-tint: 253 244 231;
-  color-scheme: light;
-}
-
-/* Dark "MetaXperts — Spatial Intelligence" tracker scope. */
-.mon-dark {
-  --bg: var(--tracker-bg);
-  --surface: var(--tracker-surface);
-  --surface-2: 23 29 47;
-  --surface-3: 31 39 60;
-  --line: var(--tracker-line);
-  --ink: var(--tracker-ink);
-  --ink-dim: var(--tracker-ink-dim);
-  --accent: var(--tracker-accent);
-  --accent-strong: 108 92 255;
-  color-scheme: dark;
 }
 
 @layer base {
