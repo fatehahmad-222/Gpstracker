@@ -15,13 +15,23 @@ function generatePassword(length = 10) {
   return Array.from(bytes, (n) => CHARSET[n % CHARSET.length]).join("");
 }
 
-export default function AddEmployeeModal({ open, onClose, onCreated }) {
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+/**
+ * Create a sign-in account.
+ *
+ * `defaults.employee_id` is what makes this usable from the merged employees
+ * screen: the monitor creates an HR row first, so the account is created second
+ * and linked back to it. Omit it and this behaves as it always has, as a
+ * standalone "create a console account" action.
+ */
+export default function AddEmployeeModal({ open, onClose, onCreated, defaults }) {
+  const [fullName, setFullName] = useState(defaults?.full_name || "");
+  const [email, setEmail] = useState(defaults?.email || "");
+  const [phone, setPhone] = useState(defaults?.phone || "");
   const [password, setPassword] = useState(generatePassword);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const employeeId = defaults?.employee_id || null;
 
   const reset = () => {
     setFullName("");
@@ -39,7 +49,13 @@ export default function AddEmployeeModal({ open, onClose, onCreated }) {
       const res = await fetch("/api/employees", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ full_name: fullName, email, phone, password }),
+        body: JSON.stringify({
+          full_name: fullName,
+          email,
+          phone,
+          password,
+          ...(employeeId ? { employee_id: employeeId } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Unable to create the account.");
@@ -57,8 +73,9 @@ export default function AddEmployeeModal({ open, onClose, onCreated }) {
     <Modal open={open} onClose={onClose} title="Add employee">
       <form onSubmit={handleSubmit} className="space-y-4 p-5">
         <p className="text-sm text-ink-dim">
-          Creates a sign-in account instantly. Share the temporary password with
-          the employee — they can change it after first sign-in.
+          {employeeId
+            ? "Creates a sign-in account for this employee and links it to their record. Share the temporary password with them — they can change it after first sign-in."
+            : "Creates a sign-in account instantly. Share the temporary password with the employee — they can change it after first sign-in."}
         </p>
 
         <Field label="Full name">

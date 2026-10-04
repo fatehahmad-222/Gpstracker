@@ -238,7 +238,7 @@ export function Dashboard() {
               title={tile.label}
               hint={tile.hint}
               count={tile.count}
-              href="/monitor/alerts"
+              href="/dashboard/alerts"
             />
           ))}
         </div>
@@ -252,7 +252,7 @@ export function Dashboard() {
           className="lg:col-span-2"
           action={
             <a
-              href="/monitor/alerts"
+              href="/dashboard/alerts"
               className="text-[12px] font-medium text-brand hover:underline"
             >
               Open queue

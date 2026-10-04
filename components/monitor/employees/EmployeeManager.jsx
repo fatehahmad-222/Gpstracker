@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Archive,
   ArchiveRestore,
   Download,
+  ExternalLink,
   KeyRound,
   Loader2,
   Pencil,
   Plus,
   Search,
   Upload,
+  UserPlus,
   Users,
   X,
 } from "lucide-react";
@@ -21,6 +24,7 @@ import { ErrorState } from "@/components/monitor/states";
 import { EmployeeForm } from "./EmployeeForm";
 import { ImportReport } from "./ImportReport";
 import { PasswordDialog } from "./PasswordDialog";
+import AddEmployeeModal from "@/components/dashboard/AddEmployeeModal";
 import { useQueryState } from "@/hooks/monitor/useQueryState";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +34,14 @@ import { cn } from "@/lib/utils";
  * One screen for the directory: search, filters, add/edit, archive/restore,
  * app-password reset and CSV import/export. Filters live in the URL so a
  * filtered view can be shared or bookmarked.
+ *
+ * This screen also absorbed the console's old employee cards when /monitor was
+ * folded into /dashboard. That merge had to reconcile two different employee
+ * identities rather than just two lists: the monitor keys people by `employees.id`
+ * and the console by `profiles.id`, so an HR row exists before, or without, a
+ * sign-in account. `profile_id` is the join, and both abilities hang off it --
+ * "Sign-in account" creates the missing half, and the name links to the console's
+ * own location/task history once it exists.
  */
 export function EmployeeManager() {
   // Filters live in the URL so a filtered view can be shared or bookmarked.
@@ -55,6 +67,7 @@ export function EmployeeManager() {
   const [editing, setEditing] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [passwordFor, setPasswordFor] = useState(null);
+  const [accountFor, setAccountFor] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [notice, setNotice] = useState(null);
 
@@ -159,15 +172,30 @@ export function EmployeeManager() {
         accessorKey: "name",
         header: "Employee",
         size: 240,
-        cell: ({ row }) => (
-          <div className="flex min-w-0 items-center gap-2">
-            <NameAvatar name={row.original.name} size={26} />
-            <div className="min-w-0">
-              <div className="truncate font-medium text-ink">{row.original.name}</div>
-              <div className="truncate font-mono text-[11px] text-ink-dim">{row.original.emp_code}</div>
+        cell: ({ row }) => {
+          const person = row.original;
+          return (
+            <div className="flex min-w-0 items-center gap-2">
+              <NameAvatar name={person.name} size={26} />
+              <div className="min-w-0">
+                {person.profile_id ? (
+                  // The console's detail view is keyed by profile id, not by the
+                  // HR id this table is built from.
+                  <Link
+                    href={`/dashboard/employees/${person.profile_id}`}
+                    className="flex min-w-0 items-center gap-1 hover:underline"
+                  >
+                    <span className="truncate font-medium text-ink">{person.name}</span>
+                    <ExternalLink size={12} className="shrink-0 text-ink-dim" />
+                  </Link>
+                ) : (
+                  <span className="truncate font-medium text-ink">{person.name}</span>
+                )}
+                <div className="truncate font-mono text-[11px] text-ink-dim">{person.emp_code}</div>
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
       }),
       columnDef({
         id: "department_name",
@@ -222,10 +250,17 @@ export function EmployeeManager() {
       columnDef({
         id: "actions",
         header: "",
-        size: 120,
+        size: 160,
         enableSorting: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
+            {row.original.profile_id ? null : (
+              <IconAction
+                label={`Create a sign-in account for ${row.original.name}`}
+                onClick={() => setAccountFor(row.original)}
+                icon={UserPlus}
+              />
+            )}
             <IconAction
               label={`Reset app password for ${row.original.name}`}
               onClick={() => setPasswordFor(row.original)}
@@ -246,7 +281,7 @@ export function EmployeeManager() {
         ),
       }),
     ],
-    [archive, openEditor]
+    [archive, openEditor, setAccountFor]
   );
 
   const exportHref = `/api/monitor/employees/export${qs({
@@ -426,6 +461,26 @@ export function EmployeeManager() {
           onReset={(message) => {
             setPasswordFor(null);
             setNotice({ message });
+          }}
+        />
+      ) : null}
+
+      {accountFor ? (
+        <AddEmployeeModal
+          open
+          onClose={() => setAccountFor(null)}
+          onCreated={() => {
+            setAccountFor(null);
+            setNotice({
+              message: `Sign-in account created for ${accountFor.name}. Share the temporary password with them.`,
+            });
+            load();
+          }}
+          defaults={{
+            employee_id: accountFor.id,
+            full_name: accountFor.name,
+            email: accountFor.email || "",
+            phone: accountFor.phone || "",
           }}
         />
       ) : null}

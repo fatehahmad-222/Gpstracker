@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, LogOut, Map, Radar } from "lucide-react";
+import { Home, LogOut, Map, Radar, CalendarCheck } from "lucide-react";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { useTheme } from "@/components/providers/ThemeProvider";
 import { EmployeeTrackerProvider } from "./EmployeeTracker";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const tabs = [
   { href: "/app", label: "Tasks", icon: Home },
   { href: "/app/map", label: "Map", icon: Map },
+  { href: "/app/attendance", label: "Attendance", icon: CalendarCheck },
 ];
 
 export default function AppShell({ children }) {
