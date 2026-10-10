@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 /**
  * One screen for Departments, Sub-Departments and Designations.
  *
- * Spec 4.3 groups these three under Configuration and they differ only in the
+ * Spec 4.3 groups these three under Settings and they differ only in the
  * parent they filter by, so they share this component. The parent lists are
  * fetched once and passed in so the form can offer a department filter without
  * a second round trip.

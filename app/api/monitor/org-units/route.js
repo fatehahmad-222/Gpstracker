@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * identical files. `kind` is validated against a fixed map, never interpolated
  * into SQL, so it cannot be used to reach an arbitrary table.
  *
- * `kind=employees` is also accepted, read-only, so Configuration can fill a
+ * `kind=employees` is also accepted, read-only, so Settings can fill a
  * scope picker without pulling in Employee Management.
  */
 export async function GET(request) {

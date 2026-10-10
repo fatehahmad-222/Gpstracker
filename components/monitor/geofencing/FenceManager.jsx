@@ -161,7 +161,9 @@ export function FenceManager({
         cell: ({ row }) => <StatusPill status={row.original.status === "active" ? "active" : "inactive"} />,
       }),
       columnDef({
+        id: "actions",
         header: "",
+        enableHiding: false,
         cell: ({ row }) => (
           <div className="flex justify-end gap-1">
             <button

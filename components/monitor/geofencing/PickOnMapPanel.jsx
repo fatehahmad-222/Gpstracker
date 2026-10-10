@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Card } from "@/components/monitor/primitives";
 
 /**
- * The interactive half of the "Pick on Map" screen.
+ * The interactive half of the "Pin on Map" screen.
  *
  * This lives apart from the page because that page exports `metadata`, which
  * only a Server Component may do -- and a Server Component cannot hand function
@@ -44,7 +44,7 @@ export function PickOnMapPanel() {
       <div className="space-y-4">
         <header>
           <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
-            Pick on Map
+            Pin on Map
           </h1>
           <p className="mt-0.5 text-sm text-ink-dim">
             Draw a location straight on the map. The shape is saved exactly as drawn.

@@ -22,7 +22,7 @@ import { TableSkeleton, EmptyState } from "@/components/monitor/states";
  *
  * Sticky header and sticky first column are handled with plain CSS
  * (`position: sticky`) — no library feature needed, and it keeps the wide
- * Command Center scrolling horizontally without losing context.
+ * Ops Center scrolling horizontally without losing context.
  */
 
 const DEFAULT_COLUMN = {

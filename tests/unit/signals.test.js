@@ -17,6 +17,7 @@ import {
   isUnsupported,
   hoursSinceSync,
   noSyncOver24h,
+  deviceSyncStatus,
   hasSecondDevice,
   impliedSpeedKmh,
   detectImpossibleTravel,
@@ -221,6 +222,19 @@ describe("sync age", () => {
   it("does not flag a fresh sync", () => {
     const now = Date.parse("2026-10-03T12:00:00.000Z");
     expect(noSyncOver24h("2026-10-03T11:00:00.000Z", now)).toBe(false);
+  });
+});
+
+describe("deviceSyncStatus", () => {
+  it("calls a recently synced device online", () => {
+    const now = Date.parse("2026-10-03T12:00:00.000Z");
+    expect(deviceSyncStatus("2026-10-03T11:00:00.000Z", now)).toBe("online");
+  });
+
+  it("calls a stale or never-synced device offline", () => {
+    const now = Date.parse("2026-10-03T12:00:00.000Z");
+    expect(deviceSyncStatus("2026-10-02T06:00:00.000Z", now)).toBe("offline");
+    expect(deviceSyncStatus(null, now)).toBe("offline");
   });
 });
 

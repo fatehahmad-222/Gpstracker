@@ -116,7 +116,7 @@ export function buildEmployees(count = 40) {
           ? { start: "08:00", end: "16:00" }
           : { start: "09:00", end: "18:00" };
 
-    // Device health spread, so the Command Center has a realistic mix.
+    // Device health spread, so the Ops Center has a realistic mix.
     const deviceProfile = i % 9 === 0
       ? { android_version: "11", model: "SM-A125F", manufacturer: "Samsung", supported: false }
       : i % 9 === 4

@@ -3,7 +3,7 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Shared form primitives for the Configuration screens.
+ * Shared form primitives for the Settings screens.
  *
  * Kept in their own module (rather than inside OrgUnitManager) so the policy
  * form can use the same field markup without importing the org-unit screen.

@@ -519,7 +519,7 @@ async function main() {
         });
       }
 
-      // Device events, so the Command Center has rows to drill into.
+      // Device events, so the Ops Center has rows to drill into.
       if (today) {
         const addEvent = (type, minutesAgo, meta = {}) => {
           events.push({

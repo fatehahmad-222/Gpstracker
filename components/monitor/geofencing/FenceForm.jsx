@@ -175,6 +175,16 @@ export function FenceForm({ fence, onCancel, onSaved }) {
 
   async function submit(event) {
     event.preventDefault();
+
+    // `draft` is null until the shape can actually be built (a centre, both
+    // corners, three polygon points, an origin and a destination). Without this
+    // guard a blank form submitted `Number("")` — zero — and saved the fence on
+    // Null Island, where the map shows "Map data not available".
+    if (!draft) {
+      setErrors({ _shape: "Complete the shape on the map before saving." });
+      return;
+    }
+
     setBusy(true);
     setErrors({});
 

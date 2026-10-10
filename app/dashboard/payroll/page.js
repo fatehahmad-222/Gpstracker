@@ -1,7 +1,7 @@
 import ComingSoonPage from "@/components/dashboard/ComingSoonPage";
 
-export const metadata = { title: "Payroll Processing" };
+export const metadata = { title: "Payroll" };
 
 export default function Page() {
-  return <ComingSoonPage title="Payroll Processing" description="Monthly payroll runs informed by attendance and deduction policies." />;
+  return <ComingSoonPage title="Payroll" description="Monthly payroll runs informed by attendance and deduction policies." />;
 }

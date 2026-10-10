@@ -178,7 +178,7 @@ export function AttendanceLogs() {
     <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[18px] font-semibold text-ink">Attendance Logs</h1>
+          <h1 className="text-[18px] font-semibold text-ink">Attendance Records</h1>
           <p className="text-[12px] text-ink-dim">Every punch reported by the mobile app</p>
         </div>
 

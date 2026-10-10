@@ -1,7 +1,7 @@
 import ComingSoonPage from "@/components/dashboard/ComingSoonPage";
 
-export const metadata = { title: "Timekeeper" };
+export const metadata = { title: "Timesheets" };
 
 export default function Page() {
-  return <ComingSoonPage title="Timekeeper" description="Punch-card style terminal tracking." />;
+  return <ComingSoonPage title="Timesheets" description="Punch-card style terminal tracking." />;
 }

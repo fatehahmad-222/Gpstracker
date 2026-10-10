@@ -5,7 +5,7 @@ import { Circle, MapContainer, Marker, Polygon, Polyline, Popup, Tooltip, useMap
 import L from "leaflet";
 
 import { OsmTiles, FitBounds } from "@/components/map/MapBase";
-import { fenceBounds, fenceCenter, fenceVertices } from "@/lib/monitor/geojson";
+import { boundsCenter, fenceBounds, fenceCenter, fenceVertices } from "@/lib/monitor/geojson";
 
 /** Sialkot, matching the seeded data. Used only when there is nothing to fit. */
 const FALLBACK_CENTER = [32.4945, 74.5229];
@@ -167,17 +167,20 @@ export default function FenceMap({
   className = "h-[420px]",
 }) {
   const bounds = useMemo(() => {
-    const fitted = fences.map(fenceBounds).filter(Boolean);
-    if (fitted.length) return fitted.flat();
-    if (draft?.geometry) return fenceBounds({ ...draft, type: draft.type });
+    // Leaflet's LatLngBounds throws on a NaN pair, and one malformed fence
+    // (missing or non-numeric coordinates) would take the whole screen down;
+    // drop those pairs so the map still fits whatever is valid.
+    const finite = (pair) => Array.isArray(pair) && Number.isFinite(pair[0]) && Number.isFinite(pair[1]);
+    const fitted = fences.map(fenceBounds).filter(Boolean).flat().filter(finite);
+    if (fitted.length) return fitted;
+    if (draft?.geometry) return fenceBounds({ ...draft, type: draft.type })?.filter(finite) || null;
     return null;
   }, [fences, draft]);
 
-  const center = useMemo(() => {
-    const b = bounds;
-    if (!b) return FALLBACK_CENTER;
-    return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
-  }, [bounds]);
+  // `bounds` is a list of [lat, lng] pairs (what FitBounds/Leaflet expect), so
+  // the midpoint comes from the extremes of each column; `boundsCenter` guards
+  // against the NaN that made Leaflet throw `Invalid LatLng object`.
+  const center = useMemo(() => boundsCenter(bounds, FALLBACK_CENTER), [bounds]);
 
   return (
     <div className={`overflow-hidden rounded-tile border border-line ${className}`}>

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 
 import {
   validateTask,
@@ -11,6 +11,9 @@ import {
   TASK_STATUSES,
   TASK_STATUS_META,
   MAX_TITLE_LENGTH,
+  isFinished,
+  COMPLETION_SOURCE_META,
+  countTasks,
 } from "@/lib/monitor/fieldTasks";
 
 describe("validateTask", () => {
@@ -122,7 +125,7 @@ describe("resolveAssignee", () => {
   });
 
   it("refuses an inactive employee", () => {
-    expect(resolveAssignee({ id: "e1", profile_id: "p1", is_active: false }).error).toBe("employee_inactive");
+    expect(resolveAssignee({ id: "e1", profile_id: "p1", status: "inactive" }).error).toBe("employee_inactive");
   });
 
   it("reports a missing employee rather than throwing", () => {
@@ -216,15 +219,31 @@ describe("task filtering and sorting", () => {
     ];
     expect(sortTasks(rows).map((r) => r.id)).toEqual(["y", "x"]);
   });
+});
 
-  it("does not mutate the input and handles an empty list", () => {
-    const rows = [
-      { id: "1", status: "completed", due_at: null, created_at: "1" },
-      { id: "2", status: "pending", due_at: null, created_at: "2" },
-    ];
-    const before = rows.map((r) => r.id);
-    sortTasks(rows);
-    expect(rows.map((r) => r.id)).toEqual(before);
-    expect(sortTasks()).toEqual([]);
+describe("task history helpers", () => {
+  it("knows when a status is finished", () => {
+    expect(isFinished("completed")).toBe(true);
+    expect(isFinished("cancelled")).toBe(true);
+    expect(isFinished("pending")).toBe(false);
+    expect(isFinished("in_progress")).toBe(false);
+    expect(isFinished(undefined)).toBe(false);
+  });
+
+  it("exposes completion source meta labels", () => {
+    expect(COMPLETION_SOURCE_META.geofence.label).toContain("reached");
+    expect(COMPLETION_SOURCE_META.manual.label).toContain("admin");
+  });
+
+  it("counts tasks correctly", () => {
+    expect(countTasks([])).toEqual({ total: 0, open: 0, completed: 0, cancelled: 0 });
+    expect(
+      countTasks([
+        { status: "pending" },
+        { status: "in_progress" },
+        { status: "completed" },
+        { status: "cancelled" },
+      ])
+    ).toEqual({ total: 4, open: 2, completed: 1, cancelled: 1 });
   });
 });

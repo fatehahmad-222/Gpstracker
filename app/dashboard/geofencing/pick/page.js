@@ -7,7 +7,7 @@ import { PickOnMapPanel } from "@/components/monitor/geofencing/PickOnMapPanel";
  * and saving the fence directly is quicker than working inside the list form.
  * Uses the same form, so validation and the saved geometry are identical.
  */
-export const metadata = { title: "Pick on Map" };
+export const metadata = { title: "Pin on Map" };
 
 export default function Page() {
   return <PickOnMapPanel />;

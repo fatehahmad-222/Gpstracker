@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AlertTriangle, Radio, RefreshCw } from "lucide-react";
 
-import { api } from "@/lib/monitor/client";
+import { api, qs } from "@/lib/monitor/client";
 import { usePolling } from "@/hooks/monitor/usePolling";
 import { useQueryState } from "@/hooks/monitor/useQueryState";
 import { Card, LivePill } from "@/components/monitor/primitives";
@@ -64,8 +64,13 @@ export function LiveMapScreen() {
       setLoading(true);
       try {
         await load();
-        const data = await api.get("/api/monitor/org-units?kind=department");
-        if (!cancelled) setDepartments(data.rows || []);
+        // The department filter is secondary: it must not blank the map if it
+        // fails. `kind` is the plural key the route accepts ("departments"); the
+        // singular "department" is not a known type and the route answers 400.
+        const data = await api
+          .get(`/api/monitor/org-units${qs({ kind: "departments" })}`)
+          .catch(() => null);
+        if (!cancelled && data) setDepartments(data.rows || []);
       } catch (err) {
         if (!cancelled) setError(err);
       } finally {
@@ -136,7 +141,7 @@ export function LiveMapScreen() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)]">
         {error ? (
           <Card title="Live map">
-            <ErrorState error={error} onRetry={load} />
+            <ErrorState hint={error?.message} onRetry={load} />
           </Card>
         ) : (
           <LiveMap

@@ -26,7 +26,8 @@ async function findOwnEmployeeRow(supabase, userId, companyId) {
     .select("id, emp_code, name")
     .eq("profile_id", userId)
     .eq("company_id", companyId)
-    .is("is_active", true)
+    // `employees` uses `status`, not the `is_active` flag that lives on profiles.
+    .eq("status", "active")
     .maybeSingle();
   return data || null;
 }

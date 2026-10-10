@@ -11,6 +11,7 @@ import {
   fenceVertices,
   fenceBounds,
   fenceCenter,
+  boundsCenter,
 } from "@/lib/monitor/geojson";
 import { geofenceSchema } from "@/lib/monitor/validation";
 import { toGeofenceRow } from "@/lib/server/geofences";
@@ -30,6 +31,16 @@ describe("circleGeometry", () => {
   it("rejects a non-numeric coordinate instead of writing NaN", () => {
     expect(() => circleGeometry({ center_lat: "abc", center_lng: 74 })).toThrow(TypeError);
   });
+
+  // Regression: a blank field is not zero. `Number("")` is 0, so an unfinished
+  // new-location form used to build a circle/rectangle at (0, 0); the map then
+  // centred on Null Island, where the basemap reads "Map data not available".
+  it("rejects a blank centre rather than placing it at zero", () => {
+    expect(() => circleGeometry({ center_lat: "", center_lng: "" })).toThrow(TypeError);
+    expect(() => buildGeometry("circle", { center_lat: "", center_lng: "", radius_m: 150 })).toThrow(
+      TypeError
+    );
+  });
 });
 
 describe("rectangleGeometry", () => {
@@ -44,6 +55,10 @@ describe("rectangleGeometry", () => {
   it("normalises corners given in any drag order", () => {
     const dragged = rectangleGeometry({ north: 32.49, south: 32.5, east: 74.52, west: 74.53 });
     expect(dragged).toEqual(rectangleGeometry(NE));
+  });
+
+  it("rejects blank corners rather than placing the box at zero", () => {
+    expect(() => rectangleGeometry({ north: "", south: "", east: "", west: "" })).toThrow(TypeError);
   });
 });
 
@@ -231,6 +246,38 @@ describe("fenceVertices and bounds", () => {
   });
 });
 
+describe("boundsCenter", () => {
+  // Regression: FenceMap read a nested [lat, lng]-pair list as if it were a flat
+  // [south, west, north, east] tuple, so `b[0] + b[2]` concatenated arrays and
+  // the map centre became [NaN, NaN] — Leaflet then threw
+  // `Invalid LatLng object: (NaN, NaN)` from MapContainer.setView.
+  it("averages the extremes of a single fence's pair list", () => {
+    expect(boundsCenter([[32.49, 74.52], [32.51, 74.54]], [0, 0])).toEqual([32.5, 74.53]);
+  });
+
+  it("ties together several fences' bounds", () => {
+    const bounds = [
+      [32.49, 74.52],
+      [32.5, 74.53],
+      [33.0, 74.0],
+      [33.2, 74.1],
+    ];
+    expect(boundsCenter(bounds, [0, 0])).toEqual([32.845, 74.265]);
+  });
+
+  it("falls back when there is nothing to centre on", () => {
+    const fallback = [32.4945, 74.5229];
+    expect(boundsCenter(null, fallback)).toBe(fallback);
+    expect(boundsCenter([], fallback)).toBe(fallback);
+  });
+
+  it("never returns NaN for malformed pairs", () => {
+    const fallback = [1, 2];
+    expect(boundsCenter([[NaN, NaN]], fallback)).toBe(fallback);
+    expect(boundsCenter([undefined, null], fallback)).toBe(fallback);
+  });
+});
+
 describe("geofenceSchema", () => {
   const common = { name: "Head Office", color: "#2563eb" };
 
@@ -255,6 +302,29 @@ describe("geofenceSchema", () => {
       radius_m: 250,
     });
     expect(result.success).toBe(false);
+  });
+
+  // Regression: `z.coerce.number()` maps "" to 0, so a blank centre passed and
+  // was saved on Null Island. Blank must be treated as missing.
+  it("rejects blank coordinates rather than coercing them to zero", () => {
+    const circle = geofenceSchema.safeParse({
+      ...common,
+      type: "circle",
+      center_lat: "",
+      center_lng: "",
+      radius_m: 250,
+    });
+    expect(circle.success).toBe(false);
+
+    const rectangle = geofenceSchema.safeParse({
+      ...common,
+      type: "rectangle",
+      north: "",
+      south: "",
+      east: "",
+      west: "",
+    });
+    expect(rectangle.success).toBe(false);
   });
 
   it("rejects a malformed colour", () => {

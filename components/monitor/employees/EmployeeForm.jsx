@@ -369,7 +369,7 @@ export function EmployeeForm({ employee, departments, designations, geofences, o
                   </div>
                 ) : (
                   <p className="text-[12px] text-ink-dim">
-                    No locations defined yet. Create one under Geofencing first.
+                    No locations defined yet. Create one under Geo Zones first.
                   </p>
                 )}
                 {errors.geofence_ids ? (

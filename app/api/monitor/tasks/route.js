@@ -19,14 +19,23 @@ export const dynamic = "force-dynamic";
 const LIST_COLUMNS =
   "id, admin_id, employee_id, title, description, target_lat, target_lng, target_address, radius_meters, status, completion_source, due_at, created_at, completed_at";
 
-/** Load an employee inside this company, active or not. */
+/**
+ * Load an employee inside this company, active or not.
+ *
+ * `employees` uses `status` ('active'/'inactive'), not `is_active` - that flag
+ * lives on `profiles`. Selecting a column that does not exist makes PostgREST
+ * return an error with no rows, so the error is thrown here rather than
+ * swallowed: an unhandled one would otherwise look like "this employee has no
+ * tasks", which is exactly how this broke before.
+ */
 async function findEmployee(supabase, companyId, employeeId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("employees")
-    .select("id, profile_id, name, emp_code, is_active")
+    .select("id, profile_id, name, emp_code, status")
     .eq("id", employeeId)
     .eq("company_id", companyId)
     .maybeSingle();
+  if (error) throw error;
   return data || null;
 }
 
@@ -36,6 +45,7 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
+  const employeeId = searchParams.get("employee_id");
 
   let query = ctx.supabase
     .from("tasks")
@@ -46,33 +56,47 @@ export async function GET(request) {
 
   if (status && status !== "all") query = query.eq("status", status);
 
-  const { data, error } = await query;
-  if (error) return dbErrorResponse(error, "Could not load tasks");
+  try {
+    // Per-employee history (the Task History tab). `employee_id` here is an
+    // *employees* id — same convention as POST — resolved to the profile id the
+    // tasks table actually stores. An employee with no login has never held a
+    // task, so that is an empty history, not an error.
+    if (employeeId) {
+      const employee = await findEmployee(ctx.supabase, ctx.companyId, employeeId);
+      if (!employee?.profile_id) return ok({ is_admin: ctx.role === "admin", rows: [] });
+      query = query.eq("employee_id", employee.profile_id);
+    }
 
-  // tasks.employee_id is a profile id, so the name is resolved through profiles.
-  // The employees table is what the UI shows, so it is joined on profile_id to
-  // bring the emp_code along too.
-  const profileIds = [...new Set((data || []).map((t) => t.employee_id).filter(Boolean))];
-  let people = {};
-  if (profileIds.length) {
-    const { data: staff } = await ctx.supabase
-      .from("employees")
-      .select("id, profile_id, name, emp_code")
-      .eq("company_id", ctx.companyId)
-      .in("profile_id", profileIds);
-    people = Object.fromEntries(
-      (staff || []).filter((e) => e.profile_id).map((e) => [e.profile_id, { name: e.name, emp_code: e.emp_code, employee_id: e.id }])
-    );
+    const { data, error } = await query;
+    if (error) return dbErrorResponse(error, "Could not load tasks");
+
+    // tasks.employee_id is a profile id, so the name is resolved through profiles.
+    // The employees table is what the UI shows, so it is joined on profile_id to
+    // bring the emp_code along too.
+    const profileIds = [...new Set((data || []).map((t) => t.employee_id).filter(Boolean))];
+    let people = {};
+    if (profileIds.length) {
+      const { data: staff } = await ctx.supabase
+        .from("employees")
+        .select("id, profile_id, name, emp_code")
+        .eq("company_id", ctx.companyId)
+        .in("profile_id", profileIds);
+      people = Object.fromEntries(
+        (staff || []).filter((e) => e.profile_id).map((e) => [e.profile_id, { name: e.name, emp_code: e.emp_code, employee_id: e.id }])
+      );
+    }
+
+    return ok({
+      is_admin: ctx.role === "admin",
+      rows: (data || []).map((t) => ({
+        ...t,
+        employee_name: people[t.employee_id]?.name || null,
+        employee_code: people[t.employee_id]?.emp_code || null,
+      })),
+    });
+  } catch (error) {
+    return dbErrorResponse(error, "Could not load tasks");
   }
-
-  return ok({
-    is_admin: ctx.role === "admin",
-    rows: (data || []).map((t) => ({
-      ...t,
-      employee_name: people[t.employee_id]?.name || null,
-      employee_code: people[t.employee_id]?.emp_code || null,
-    })),
-  });
 }
 
 export async function POST(request) {
