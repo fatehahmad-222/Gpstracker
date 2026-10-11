@@ -102,12 +102,12 @@ describe("toEmployeeRow", () => {
 
   it("flags an overnight shift even when the box was not ticked", () => {
     const row = toEmployeeRow({ ...FORM, shift_start: "21:30", shift_end: "06:00" });
-    expect(row.overnight_allowed).toBe(true);
+    expect(row.overnight_approved).toBe(true);
   });
 
   it("honours an explicit overnight approval on a same-day shift", () => {
     const row = toEmployeeRow({ ...FORM, overnight_approved: true });
-    expect(row.overnight_allowed).toBe(true);
+    expect(row.overnight_approved).toBe(true);
   });
 
   it("writes null rather than an empty string for optional text", () => {
