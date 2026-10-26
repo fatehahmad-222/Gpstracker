@@ -1,6 +1,6 @@
 import { requireContext, badRequest } from "@/lib/server/monitorClient";
 import { dbErrorResponse, notFound, ok, readJson, writeAudit } from "@/lib/server/api";
-import { revokeDeviceToken } from "@/lib/server/ingest";
+import { allowDeviceReenroll, revokeDeviceToken } from "@/lib/server/ingest";
 
 export const dynamic = "force-dynamic";
 
@@ -24,33 +24,43 @@ export async function PATCH(request, { params }) {
   const body = await readJson(request);
   const action = body?.action;
 
-  if (action !== "revoke") {
-    return badRequest('Only "revoke" is supported');
+  if (action !== "revoke" && action !== "allow_reenroll") {
+    return badRequest('Only "revoke" and "allow_reenroll" are supported');
   }
 
   try {
-    const token = await revokeDeviceToken(ctx.supabase, {
-      companyId: ctx.companyId,
-      id: params.id,
-    });
+    const token =
+      action === "revoke"
+        ? await revokeDeviceToken(ctx.supabase, {
+            companyId: ctx.companyId,
+            id: params.id,
+          })
+        : await allowDeviceReenroll(ctx.supabase, {
+            companyId: ctx.companyId,
+            id: params.id,
+          });
 
-    // Already revoked, or belonging to another company. Treated as not-found
-    // rather than forbidden so this cannot confirm that someone else's token id
-    // exists.
-    if (!token) return notFound("No active token with that id");
+    if (!token) return notFound("No device token with that id");
 
     await writeAudit(ctx.supabase, {
       companyId: ctx.companyId,
       actor: ctx.user,
-      action: "device_token.revoked",
+      action:
+        action === "revoke" ? "device_token.revoked" : "device_token.reenroll_allowed",
       entityType: "device_token",
       entityId: token.id,
-      summary: `Revoked device ${token.device_id}`,
+      summary:
+        action === "revoke"
+          ? `Revoked device ${token.device_id}`
+          : `Allowed re-enrollment for ${token.device_id}`,
       meta: { employee_id: token.employee_id, device_id: token.device_id },
     });
 
     return ok({ token });
   } catch (error) {
-    return dbErrorResponse(error, "Could not revoke that device");
+    return dbErrorResponse(
+      error,
+      action === "revoke" ? "Could not revoke that device" : "Could not allow re-enrollment"
+    );
   }
 }

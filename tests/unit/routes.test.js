@@ -5,9 +5,9 @@ import { join, relative } from "node:path";
 /**
  * Route-level auth coverage.
  *
- * Every API route in this product is either a session route or a device route,
- * and there is no third category. A route that forgets its guard is
- * unauthenticated by default, because nothing else in the stack adds
+ * Every API route in this product is either a session route, a device route or a
+ * shared-secret cron route, and there is no fourth category. A route that forgets
+ * its guard is unauthenticated by default, because nothing else in the stack adds
  * authentication for it: Next.js will happily serve whatever the handler returns.
  *
  * Phase 9 found that a whole surface of ingestion was missing rather than that a
@@ -44,6 +44,7 @@ const routes = findRoutes(API_DIR).map((full) => {
     usesContext: /requireContext/.test(text),
     usesLegacyGuard: /resolveAuth/.test(text),
     usesDeviceToken: /bearerToken|authenticateDevice/.test(text),
+    usesCronSecret: /PUSH_DISPATCH_SECRET|CRON_SECRET/.test(text),
     referencesCompany: /companyId|company_id/.test(text),
   };
 });
@@ -62,9 +63,12 @@ describe("route inventory", () => {
 describe("every route is authenticated", () => {
   it("has exactly one authentication strategy", () => {
     const strategies = (r) =>
-      [r.usesContext && "session", r.usesLegacyGuard && "legacy-session", r.usesDeviceToken && "device-token"].filter(
-        Boolean
-      );
+      [
+        r.usesContext && "session",
+        r.usesLegacyGuard && "legacy-session",
+        r.usesDeviceToken && "device-token",
+        r.usesCronSecret && "cron-secret",
+      ].filter(Boolean);
 
     const ambiguous = routes
       .map((r) => ({ rel: r.rel, s: strategies(r) }))
@@ -78,7 +82,7 @@ describe("every route is authenticated", () => {
 
   it("has no route with no guard at all", () => {
     const unguarded = routes
-      .filter((r) => !r.usesContext && !r.usesLegacyGuard && !r.usesDeviceToken)
+      .filter((r) => !r.usesContext && !r.usesLegacyGuard && !r.usesDeviceToken && !r.usesCronSecret)
       .map((r) => r.rel);
     expect(unguarded).toEqual([]);
   });
