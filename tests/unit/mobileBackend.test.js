@@ -5,11 +5,20 @@ import { normaliseDeviceInfo } from "@/lib/monitor/ingest";
 import {
   ENROLLMENTS_PER_DAY,
   buildBootstrap,
+  enrollDevice,
   normaliseDeviceId,
   recordTrackingConsent,
   registerPushToken,
   unregisterPushToken,
 } from "@/lib/server/mobileApp";
+
+vi.mock("@/lib/server/ingest", () => ({
+  issueDeviceToken: vi.fn(async () => ({
+    token: "device-token",
+    record: { id: "token-record" },
+  })),
+  revokeDeviceToken: vi.fn(),
+}));
 import {
   PUSH_MAX_ATTEMPTS,
   buildExpoMessage,
@@ -139,6 +148,105 @@ const EMPLOYEE = {
   status: "active",
   deleted_at: null,
 };
+
+function enrollmentAdmin({ existing = null } = {}) {
+  const calls = { rpc: [], profiles: [] };
+  return {
+    calls,
+    rpc(name, args) {
+      calls.rpc.push({ name, args });
+      return Promise.resolve({ data: true, error: null });
+    },
+    from(table) {
+      if (table === "device_tokens") {
+        const builder = {
+          select() {
+            return builder;
+          },
+          eq() {
+            return builder;
+          },
+          maybeSingle() {
+            return Promise.resolve({ data: existing, error: null });
+          },
+        };
+        return builder;
+      }
+      if (table === "device_profiles") {
+        return {
+          upsert(payload) {
+            calls.profiles.push(payload);
+            return Promise.resolve({ error: null });
+          },
+        };
+      }
+      throw new Error(`unexpected table: ${table}`);
+    },
+  };
+}
+
+describe("enrollDevice", () => {
+  it("meters enrollment through the service-role client", async () => {
+    const admin = enrollmentAdmin();
+    const userClient = { rpc: vi.fn() };
+
+    const result = await enrollDevice({
+      admin,
+      userClient,
+      companyId: "company-1",
+      employee: EMPLOYEE,
+      profileId: "profile-1",
+      body: {
+        device_id: "android-1",
+        label: "Pixel 8",
+        device: { model: "Pixel 8", manufacturer: "Google" },
+      },
+    });
+
+    expect(result.token).toBe("device-token");
+    expect(userClient.rpc).not.toHaveBeenCalled();
+    expect(admin.calls.rpc).toEqual([
+      {
+        name: "consume_api_quota",
+        args: {
+          p_kind: "device_enroll",
+          p_limit: ENROLLMENTS_PER_DAY,
+          p_period: "day",
+          p_company_id: "company-1",
+          p_user_id: "profile-1",
+        },
+      },
+    ]);
+    expect(admin.calls.profiles[0]).toMatchObject({
+      company_id: "company-1",
+      employee_id: "emp-1",
+      device_id: "android-1",
+      last_login_at: expect.any(String),
+    });
+  });
+
+  it("checks a revoked device before consuming quota", async () => {
+    const admin = enrollmentAdmin({
+      existing: {
+        id: "device-1",
+        revoked_at: "2026-02-01T00:00:00.000Z",
+        expires_at: null,
+        reenroll_allowed: false,
+      },
+    });
+
+    const result = await enrollDevice({
+      admin,
+      companyId: "company-1",
+      employee: EMPLOYEE,
+      profileId: "profile-1",
+      body: { device_id: "android-1" },
+    });
+
+    expect(result.error).toBe("reenroll_not_allowed");
+    expect(admin.calls.rpc).toEqual([]);
+  });
+});
 
 describe("buildBootstrap", () => {
   it("returns enrollment state, tracking settings and feature flags", async () => {

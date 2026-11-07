@@ -36,9 +36,9 @@ export async function POST(request) {
 
     const result = await enrollDevice({
       admin,
-      userClient: ctx.supabase,
       companyId: ctx.companyId,
       employee,
+      profileId: ctx.profile.id,
       body,
     });
 
