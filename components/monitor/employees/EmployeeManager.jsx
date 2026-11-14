@@ -155,7 +155,10 @@ export function EmployeeManager() {
       setLoadingDetail(true);
       try {
         const data = await api.get(`/api/monitor/employees/${row.id}`);
-        setEditing(data.employee);
+        // The endpoint returns assigned fences beside the row, not inside it.
+        // Dropping them opened every edit with no locations and made saving a
+        // geo-fenced employee fail the "assign at least one location" check.
+        setEditing({ ...data.employee, geofence_ids: data.geofenceIds || [] });
       } catch (err) {
         setNotice({ tone: "warn", message: err.message || "Could not open this employee" });
       } finally {
@@ -262,7 +265,7 @@ export function EmployeeManager() {
               />
             )}
             <IconAction
-              label={`Reset app password for ${row.original.name}`}
+              label={`Reset sign-in password for ${row.original.name}`}
               onClick={() => setPasswordFor(row.original)}
               icon={KeyRound}
             />
@@ -469,10 +472,14 @@ export function EmployeeManager() {
         <AddEmployeeModal
           open
           onClose={() => setAccountFor(null)}
-          onCreated={() => {
+          onCreated={(data) => {
             setAccountFor(null);
             setNotice({
-              message: `Sign-in account created for ${accountFor.name}. Share the temporary password with them.`,
+              message: data?.emailed
+                ? `Invite emailed to ${accountFor.name}.`
+                : data?.temporary_password
+                  ? `Sign-in account created for ${accountFor.name}. Share the temporary password with them.`
+                  : `Sign-in account ready for ${accountFor.name}. Share the sign-in link with them.`,
             });
             load();
           }}
@@ -494,22 +501,16 @@ export function EmployeeManager() {
             columns={columns}
             loading={loading}
             getRowId={(row) => row.id}
-            onRowClick={(row) => setEditing(row.original)}
+            onRowClick={(row) => openEditor(row.original)}
             empty={{
               title: hasFilters ? "No employees match these filters" : "No employees yet",
               hint: hasFilters
                 ? "Try clearing a filter or searching for something else."
                 : "Add your first employee, or import a CSV to bring a whole team in at once.",
               icon: Users,
-              action: hasFilters ? null : (
-                <button
-                  type="button"
-                  onClick={() => setEditing({})}
-                  className="rounded-pill bg-brand px-3 py-1.5 text-[12px] font-semibold text-white"
-                >
-                  Add employee
-                </button>
-              ),
+              action: hasFilters
+                ? null
+                : { label: "Add employee", onClick: () => setEditing({}) },
             }}
             caption="Employees"
           />

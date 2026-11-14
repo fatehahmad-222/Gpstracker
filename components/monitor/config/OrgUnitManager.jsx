@@ -233,15 +233,10 @@ export function OrgUnitManager({
               title: `No ${title.toLowerCase()} yet`,
               hint: `Add your first ${title.toLowerCase().replace(/s$/, "")} to get started.`,
               icon: Icon,
-              action: (
-                <button
-                  type="button"
-                  onClick={() => setEditing({})}
-                  className="rounded-pill bg-brand px-3 py-1.5 text-[12px] font-semibold text-white"
-                >
-                  Add {title.toLowerCase().replace(/s$/, "")}
-                </button>
-              ),
+              action: {
+                label: `Add ${title.toLowerCase().replace(/s$/, "")}`,
+                onClick: () => setEditing({}),
+              },
             }}
             caption={title}
           />

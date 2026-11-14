@@ -73,8 +73,8 @@ export async function POST(request) {
       meta: { appPasswordGenerated: Boolean(generatedPassword), geofencesLinked },
     });
 
-    // The plaintext is surfaced once, for the admin to pass on, and is never
-    // stored. It cannot be recovered afterwards — only reset.
+    // Sign-in lives in Supabase Auth now, so `generatedPassword` is always
+    // null. It stays in the response shape for older callers.
     return ok(
       { employee, geofencesLinked, generatedPassword },
       201

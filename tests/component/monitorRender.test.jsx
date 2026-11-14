@@ -21,7 +21,7 @@
  * "does this component render at all".
  */
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { AlertManager } from "@/components/monitor/alerts/AlertManager";
 import { AttendanceLogs } from "@/components/monitor/attendance/AttendanceLogs";
@@ -273,6 +273,25 @@ describe("Task History renders real task rows", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+/**
+ * The employees empty state used to pass `action` as JSX, but EmptyState expects
+ * `{ label, onClick }` and renders the label as a button. Nothing showed, so a
+ * fresh company saw "No employees yet" with no way to add one except the header
+ * button. Assert the empty-state action both renders and opens the editor.
+ */
+describe("EmployeeManager empty state", () => {
+  it("renders a working Add employee action", async () => {
+    render(<EmployeeManager />);
+    expect(await screen.findByText("No employees yet")).toBeTruthy();
+
+    const addButtons = screen.getAllByRole("button", { name: "Add employee" });
+    expect(addButtons.length).toBe(2);
+
+    fireEvent.click(addButtons[1]);
+    expect(await screen.findByText("Add an employee")).toBeTruthy();
   });
 });
 

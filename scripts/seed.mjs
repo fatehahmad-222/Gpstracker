@@ -42,6 +42,7 @@ import {
 const args = new Set(process.argv.slice(2));
 const RESET = args.has("--reset");
 const DAYS = 7;
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD || "Demo@2026!";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -61,6 +62,16 @@ const db = createClient(url, key, {
 
 const COMPANY_ID = COMPANY.id;
 const TZ = COMPANY.timezone;
+
+/**
+ * Employee codes are short (`MX-001`), so `charCodeAt(4)` and above are NaN.
+ * Pull a stable digit from the numeric part instead, cycling if the code is
+ * shorter than the requested index.
+ */
+function codeDigit(code, index) {
+  const digits = String(code).replace(/\D/g, "") || "1";
+  return digits.charCodeAt(index % digits.length) - 48;
+}
 
 // ---------------------------------------------------------------------------
 // helpers
@@ -105,6 +116,84 @@ async function upsert(table, rows, onConflict) {
   if (error) fail(table, error);
   log(`${table}: ${data?.length ?? 0} row(s) upserted`);
   return data || [];
+}
+
+/**
+ * Give every seeded employee a real auth account + profile.
+ *
+ * `locations` / `live_locations` / `tasks` reference `profiles(id)` rather than
+ * `employees(id)`, and the legacy overview lists profiles. Seeded employees
+ * therefore need profiles or the map/task demo is empty. Accounts are
+ * idempotent: re-running reuses the same `mx-###@...` auth users.
+ */
+async function ensureDemoProfiles(seedEmployees) {
+  const { data: userPage, error: listError } = await db.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+  if (listError) fail("auth users", listError);
+
+  const byEmail = new Map(
+    (userPage?.users || []).map((user) => [user.email?.toLowerCase(), user])
+  );
+  const profileByCode = {};
+
+  for (const employee of seedEmployees) {
+    const email = `${employee.emp_code.toLowerCase()}@metaxperts.example`;
+    let user = byEmail.get(email);
+
+    if (!user) {
+      const { data, error } = await db.auth.admin.createUser({
+        email,
+        password: DEMO_PASSWORD,
+        email_confirm: true,
+        user_metadata: {
+          full_name: employee.name,
+          company_id: COMPANY_ID,
+          role: "employee",
+          phone: employee.contact_no,
+        },
+      });
+      if (error) fail(`auth user ${employee.emp_code}`, error);
+      user = data.user;
+      byEmail.set(email, user);
+    }
+
+    profileByCode[employee.emp_code] = user.id;
+  }
+
+  const profileRows = seedEmployees.map((employee) => ({
+    id: profileByCode[employee.emp_code],
+    company_id: COMPANY_ID,
+    full_name: employee.name,
+    role: "employee",
+    phone: employee.contact_no,
+    is_active: employee.status === "active" && !employee.deleted,
+  }));
+  await upsert("profiles", profileRows, "id");
+
+  // Hide legacy employee profiles that no longer have an HR row, otherwise the
+  // overview sidebar shows ghost employees after a reset.
+  const activeIds = new Set(Object.values(profileByCode));
+  const { data: allEmployees, error: profileError } = await db
+    .from("profiles")
+    .select("id")
+    .eq("company_id", COMPANY_ID)
+    .eq("role", "employee");
+  if (profileError) fail("profiles", profileError);
+
+  const staleIds = (allEmployees || [])
+    .map((profile) => profile.id)
+    .filter((id) => !activeIds.has(id));
+  if (staleIds.length) {
+    const { error } = await db
+      .from("profiles")
+      .update({ is_active: false })
+      .in("id", staleIds);
+    if (error) fail("profiles", error);
+  }
+
+  return profileByCode;
 }
 
 async function wipe() {
@@ -223,15 +312,17 @@ async function main() {
 
   // --- employees -------------------------------------------------------
   const seedEmployees = buildEmployees(40);
+  const profileByCode = await ensureDemoProfiles(seedEmployees);
   const employeeRows = seedEmployees.map((e) => {
     const [sh, sm] = e.shift_start.split(":").map(Number);
     const [eh, em] = e.shift_end.split(":").map(Number);
     return {
       company_id: COMPANY_ID,
+      profile_id: profileByCode[e.emp_code],
       emp_code: e.emp_code,
       name: e.name,
       father_husband_name: e.father_husband_name,
-      dob: `19${80 + (e.emp_code.charCodeAt(4) % 20)}-${String((e.emp_code.charCodeAt(5) % 12) + 1).padStart(2, "0")}-${String((e.emp_code.charCodeAt(6) % 28) + 1).padStart(2, "0")}`,
+      dob: `19${80 + (codeDigit(e.emp_code, 4) % 20)}-${String((codeDigit(e.emp_code, 5) % 12) + 1).padStart(2, "0")}-${String((codeDigit(e.emp_code, 6) % 28) + 1).padStart(2, "0")}`,
       gender: e.gender,
       marital_status: e.marital_status,
       cnic: e.cnic,
@@ -280,6 +371,9 @@ async function main() {
       status: "active",
       buffer_m: f.buffer_m ?? 50,
       travel_mode: f.travel_mode || null,
+      // Some deployed copies of 0005 predate the column default, so send an
+      // explicit empty array for every fence type.
+      waypoints: [],
     };
 
     if (f.type === "circle") {
@@ -368,7 +462,7 @@ async function main() {
     if (!employee || employee.deleted_at) continue;
 
     // Every 9th employee has no fix yet.
-    if (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 9 === 0) continue;
+    if (codeDigit(seed.emp_code, seed.emp_code.length - 1) % 9 === 0) continue;
 
     const assigned = assignmentRows
       .filter((row) => row.employee_id === employee.id)
@@ -378,20 +472,20 @@ async function main() {
     const home = placedAt[assigned[0]?.name] || PLACES.sialkotOffice;
 
     // Every 7th is nudged ~1.2 km off their fence, so "outside" has real data.
-    const stray = seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 7 === 0;
+    const stray = codeDigit(seed.emp_code, seed.emp_code.length - 1) % 7 === 0;
     const jitter = (n, scale) => n + (((seed.emp_code.length * 7 + n) % 13) - 6) * scale;
 
-    const ageSeconds = (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 25) * 60;
+    const ageSeconds = (codeDigit(seed.emp_code, seed.emp_code.length - 1) % 25) * 60;
 
     positionRows.push({
       company_id: COMPANY_ID,
       employee_id: employee.id,
       lat: jitter(home.lat, stray ? 0.011 : 0.002),
       lng: jitter(home.lng, stray ? 0.013 : 0.002),
-      accuracy: 8 + (seed.emp_code.charCodeAt(seed.emp_code.length - 1) % 20),
+      accuracy: 8 + (codeDigit(seed.emp_code, seed.emp_code.length - 1) % 20),
       speed: stray ? 0.9 : 0.05,
-      heading: (seed.emp_code.charCodeAt(seed.emp_code.length - 1) * 11) % 360,
-      battery: 12 + (seed.emp_code.charCodeAt(seed.emp_code.length - 1) * 3) % 88,
+      heading: (codeDigit(seed.emp_code, seed.emp_code.length - 1) * 11) % 360,
+      battery: 12 + (codeDigit(seed.emp_code, seed.emp_code.length - 1) * 3) % 88,
       recorded_at: new Date(Date.now() - ageSeconds * 1000).toISOString(),
     });
   }
@@ -437,10 +531,10 @@ async function main() {
       last_login_at: isoAt(Date.now() - 3600000),
       // ~1 in 6 employees has never synced, so "No sync 24h+" has content.
       last_sync_at:
-        seed.emp_code.charCodeAt(5) % 6 === 0
+        codeDigit(seed.emp_code, 5) % 6 === 0
           ? null
-          : isoAt(Date.now() - (seed.emp_code.charCodeAt(6) % 40) * 3600000),
-      login_count: 1 + (seed.emp_code.charCodeAt(4) % 20),
+          : isoAt(Date.now() - (codeDigit(seed.emp_code, 6) % 40) * 3600000),
+      login_count: 1 + (codeDigit(seed.emp_code, 4) % 20),
       sim_fingerprint_hash: null,
     };
   });
@@ -461,15 +555,15 @@ async function main() {
 
       // Skip ~1 in 9 employees on some days so absent / shift-not-started
       // rows exist for the dashboard business rules to be visible.
-      if (!today && (code.charCodeAt(7) + daysAgo) % 9 === 0) continue;
-      if (!today && (code.charCodeAt(8) + daysAgo) % 11 === 0) continue; // absent
+      if (!today && (codeDigit(code, 7) + daysAgo) % 9 === 0) continue;
+      if (!today && (codeDigit(code, 8) + daysAgo) % 11 === 0) continue; // absent
 
       const shiftStart = employee.shift_start;
-      const lateBy = (code.charCodeAt(6) % 4) * 6; // 0/6/12/18 minutes late
+      const lateBy = (codeDigit(code, 6) % 4) * 6; // 0/6/12/18 minutes late
       const clockInMs = shiftInstant(dayStart, shiftStart) + lateBy * 60000;
       if (today && clockInMs > Date.now()) continue; // not clocked in yet
 
-      const workedHours = 7 + (code.charCodeAt(7) % 4);
+      const workedHours = 7 + (codeDigit(code, 7) % 4);
       const clockOutMs = clockInMs + workedHours * 3600000;
       const stillIn = today && Date.now() - clockInMs < 6 * 3600000 && lateBy === 0;
 
@@ -503,14 +597,14 @@ async function main() {
         const drift = Math.sin(n / 6) * 0.0025;
         pings.push({
           company_id: COMPANY_ID,
-          employee_id: employee.id,
+          employee_id: employee.profile_id,
           lat: office.lat + drift + jitter() * 0.4,
           lng: office.lng + drift + jitter() * 0.4,
           accuracy: 8 + (n % 12),
           speed: (n % 5) * 0.4,
           heading: (n * 37) % 360,
           recorded_at: isoAt(t),
-          battery_pct: Math.max(8, 100 - n * (today ? 1.2 : 0.4)),
+          battery_pct: Math.max(8, Math.round(100 - n * (today ? 1.2 : 0.4))),
           provider: n % 3 === 0 ? "fused" : "gps",
           is_mock: false,
           state: "live",
@@ -519,28 +613,34 @@ async function main() {
         });
       }
 
-      // Device events, so the Ops Center has rows to drill into.
-      if (today) {
+      // Device events, so the Ops Center has rows to drill into. If the seed is
+      // run before today's shift starts, use yesterday's shift instead so the
+      // alerts queue is not empty.
+      if (daysAgo === 0 || daysAgo === 1) {
         const addEvent = (type, minutesAgo, meta = {}) => {
+          const occurredMs =
+            daysAgo === 1
+              ? shiftInstant(dayStart, employee.shift_start) + (30 + minutesAgo) * 60000
+              : Date.now() - minutesAgo * 60000;
           events.push({
             company_id: COMPANY_ID,
             employee_id: employee.id,
             type,
             severity: EVENT_SEVERITY[type] || "medium",
-            occurred_at: isoAt(Date.now() - minutesAgo * 60000),
-            reported_at: isoAt(Date.now() - Math.max(0, minutesAgo - 20) * 60000),
+            occurred_at: isoAt(occurredMs),
+            reported_at: isoAt(Math.min(Date.now(), occurredMs + 20 * 60000)),
             client_event_id: `seed-${code}-${type}-${daysAgo}`,
             meta,
           });
         };
 
-        if (lateBy > 12) addEvent("force_stop", 45 + (code.charCodeAt(5) % 120));
-        if (!seed.device.supported && (code.charCodeAt(8) % 3 === 0)) {
-          addEvent("location_off", 90 + (code.charCodeAt(4) % 200));
+        if (lateBy > 12) addEvent("force_stop", 45 + (codeDigit(code, 5) % 120));
+        if (!seed.device.supported && (codeDigit(code, 8) % 3 === 0)) {
+          addEvent("location_off", 90 + (codeDigit(code, 4) % 200));
         }
-        if (code.charCodeAt(9) % 7 === 0) addEvent("battery_low", 25, { battery_pct: 12 });
-        if (code.charCodeAt(10) % 13 === 0) addEvent("fake_gps", 300, { mock_provider: "FakeGPS" });
-        if (code.charCodeAt(11) % 5 === 0) {
+        if (codeDigit(code, 9) % 7 === 0) addEvent("battery_low", 25, { battery_pct: 12 });
+        if (codeDigit(code, 10) % 13 === 0) addEvent("fake_gps", 300, { mock_provider: "FakeGPS" });
+        if (codeDigit(code, 11) % 5 === 0) {
           addEvent("out_of_zone", 150, { fence: "Sialkot Market Zone", distance_m: 900 });
         }
       }
@@ -627,21 +727,38 @@ async function main() {
     .limit(1)
     .maybeSingle();
 
+  // `tasks.employee_id` references `profiles(id)`, not `employees(id)`. Seeded
+  // HR employees do not have auth profiles, so using `employee.id` here would
+  // violate the FK. Fall back to a real profile; the demo script links the
+  // seeded employee to that profile and reassigns these tasks afterwards.
+  let taskAssigneeId = adminProfile?.id || null;
+  if (!taskAssigneeId) {
+    const { data: anyProfile } = await db
+      .from("profiles")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+    taskAssigneeId = anyProfile?.id || null;
+  }
+
   await db.from("tasks").delete().eq("company_id", COMPANY_ID);
-  const taskRows = activeEmployees.slice(0, 16).map((employee, i) => ({
-    company_id: COMPANY_ID,
-    admin_id: adminProfile?.id || null,
-    employee_id: employee.profile_id || employee.id,
-    title: ["Site visit", "Delivery", "Stock check", "Client meeting"][i % 4],
-    description: "Seeded demo task",
-    target_lat: PLACES.sialkotOffice.lat + (i % 5) * 0.001,
-    target_lng: PLACES.sialkotOffice.lng + (i % 5) * 0.001,
-    target_address: PLACES.sialkotOffice.name,
-    radius_meters: 150,
-    status: i % 3 === 0 ? "completed" : i % 3 === 1 ? "in_progress" : "pending",
-    completion_source: i % 3 === 0 ? "geofence" : null,
-    due_at: isoAt(Date.now() + 86400000),
-  }));
+  const taskRows = activeEmployees
+    .slice(0, 16)
+    .map((employee, i) => ({
+      company_id: COMPANY_ID,
+      admin_id: adminProfile?.id || null,
+      employee_id: employee.profile_id || taskAssigneeId,
+      title: ["Site visit", "Delivery", "Stock check", "Client meeting"][i % 4],
+      description: "Seeded demo task",
+      target_lat: PLACES.sialkotOffice.lat + (i % 5) * 0.001,
+      target_lng: PLACES.sialkotOffice.lng + (i % 5) * 0.001,
+      target_address: PLACES.sialkotOffice.name,
+      radius_meters: 150,
+      status: i % 3 === 0 ? "completed" : i % 3 === 1 ? "in_progress" : "pending",
+      completion_source: i % 3 === 0 ? "geofence" : null,
+      due_at: isoAt(Date.now() + 86400000),
+    }))
+    .filter((row) => row.employee_id);
   await insert("tasks", taskRows);
 
   // --- summary ----------------------------------------------------------

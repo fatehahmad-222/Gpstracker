@@ -9,11 +9,11 @@ import { passwordChecklist } from "@/lib/monitor/validation";
 import { cn } from "@/lib/utils";
 
 /**
- * Reset an employee's tracker app password.
+ * Reset an employee's sign-in password.
  *
- * Its own dialog rather than a field on the form: the password is stored as a
- * scrypt hash, so it can never be shown again and changing it should be a
- * deliberate action with its own audit entry.
+ * The apps authenticate through Supabase Auth, so this updates the auth user
+ * tied to the HR row. Its own dialog rather than a field on the form: changing
+ * a password should be a deliberate action with its own audit entry.
  */
 export function PasswordDialog({ employee, onClose, onReset }) {
   const [values, setValues] = useState({ app_password: "", confirm: "" });
@@ -45,7 +45,7 @@ export function PasswordDialog({ employee, onClose, onReset }) {
       await api.post(`/api/monitor/employees/${employee.id}/password`, {
         app_password: values.app_password,
       });
-      onReset(`The app password for ${employee.name} was reset.`);
+      onReset(`The sign-in password for ${employee.name} was reset.`);
     } catch (err) {
       if (err instanceof ApiError && err.fields) setErrors(err.fields);
       else setErrors({ _form: err.message || "Could not reset this password" });
@@ -70,11 +70,11 @@ export function PasswordDialog({ employee, onClose, onReset }) {
             <KeyRound size={16} className="mt-0.5 text-brand" aria-hidden="true" />
             <div>
               <h2 id="reset-password-title" className="text-[15px] font-semibold text-ink">
-                Reset app password
+                Reset sign-in password
               </h2>
               <p className="mt-0.5 text-[12px] text-ink-dim">
-                {employee.name} ({employee.emp_code}) signs in to the tracker app with this. It is
-                stored hashed and cannot be shown again.
+                {employee.name} ({employee.emp_code}) uses this password to sign in to the tracker
+                app. It cannot be shown again.
               </p>
             </div>
           </div>

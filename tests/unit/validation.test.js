@@ -10,6 +10,7 @@ import {
   isPasswordValid,
   appPasswordSchema,
   employeeSchema,
+  employeeFormSchema,
   geofenceSchema,
   fieldErrors,
   policySchemaFor,
@@ -185,6 +186,34 @@ describe("employeeSchema", () => {
     expect(errors.cnic).toBeTruthy();
     expect(errors.contact_no).toBeTruthy();
     expect(errors.name).toBeUndefined();
+  });
+
+  it("allows a new employee with geo-fencing off and no locations", () => {
+    const r = employeeFormSchema.safeParse({
+      ...valid,
+      geofencing_enabled: false,
+      geofence_ids: [],
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it("still rejects geo-fencing on with no assigned location", () => {
+    const r = employeeFormSchema.safeParse({
+      ...valid,
+      geofencing_enabled: true,
+      geofence_ids: [],
+    });
+    expect(r.success).toBe(false);
+    expect(fieldErrors(r.error).geofence_ids).toContain("Assign at least one location");
+  });
+
+  it("accepts geo-fencing on once a location is assigned", () => {
+    const r = employeeFormSchema.safeParse({
+      ...valid,
+      geofencing_enabled: true,
+      geofence_ids: ["3f1a1b2c-4d5e-6f70-8192-a3b4c5d6e7f9"],
+    });
+    expect(r.success).toBe(true);
   });
 
   it("validates a geofence circle", () => {
