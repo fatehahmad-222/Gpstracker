@@ -15,6 +15,7 @@ import {
   fieldErrors,
   policySchemaFor,
 } from "@/lib/monitor/validation";
+import { describeDbError } from "@/lib/monitor/dbErrors";
 
 describe("CNIC", () => {
   it("accepts the dashed 13-digit format", () => {
@@ -254,5 +255,19 @@ describe("policySchemaFor", () => {
 
   it("still produces a schema for an unknown type", () => {
     expect(() => policySchemaFor("something_new")).not.toThrow();
+  });
+});
+
+describe("duplicate employee ID handling", () => {
+  it("explains the employee id conflict clearly", () => {
+    const message = describeDbError(
+      {
+        message:
+          'duplicate key value violates unique constraint "employees_company_id_emp_code_key"',
+      },
+      "That record already exists."
+    );
+
+    expect(message).toBe("This employee already exists.");
   });
 });

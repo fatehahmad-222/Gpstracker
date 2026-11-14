@@ -19,7 +19,11 @@ describe("mailer", () => {
       inviteLink: "https://example.com/welcome#access_token=1",
     });
 
-    expect(result).toEqual({ sent: false, reason: "not-configured" });
+    expect(result).toEqual({
+      sent: false,
+      reason: "not-configured",
+      error: "Email delivery is not configured on the server. Check BREVO_API_KEY and MAIL_FROM.",
+    });
   });
 
   it("posts the invite to Brevo when configured", async () => {

@@ -1,4 +1,4 @@
-import { requireContext, pageParams, MAX_PAGE_SIZE } from "@/lib/server/monitorClient";
+import { requireContext, pageParams, MAX_PAGE_SIZE, badRequest } from "@/lib/server/monitorClient";
 import { readJson, validate, dbErrorResponse, writeAudit, ok } from "@/lib/server/api";
 import { employeeFormSchema } from "@/lib/monitor/validation";
 import {
@@ -54,6 +54,26 @@ export async function POST(request) {
   if (!parsed.ok) return parsed.response;
 
   const { app_password: appPassword, geofence_ids: geofenceIds, ...values } = parsed.data;
+
+  const empCode = String(values.emp_code ?? "").trim();
+  if (empCode) {
+    const { data: existing, error: duplicateError } = await ctx.supabase
+      .from("employees")
+      .select("id")
+      .eq("company_id", ctx.companyId)
+      .eq("emp_code", empCode)
+      .maybeSingle();
+
+    if (duplicateError) {
+      return dbErrorResponse(duplicateError, "Could not check for an existing employee");
+    }
+    if (existing) {
+      return badRequest(
+        "This employee already exists.",
+        { emp_code: "This employee already exists." }
+      );
+    }
+  }
 
   try {
     const { employee, geofencesLinked, generatedPassword } = await createEmployee(ctx.supabase, {
